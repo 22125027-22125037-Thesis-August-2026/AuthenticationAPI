@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.mhsa.backend.auth.service.CustomUserDetailsService;
+import com.mhsa.backend.auth.service.TokenBlacklistService;
 import com.mhsa.backend.auth.utils.JwtUtils;
 
 import jakarta.servlet.FilterChain;
@@ -17,13 +18,13 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
     private final CustomUserDetailsService userDetailsService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -35,6 +36,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 2. Nếu có token và token hợp lệ
         if (token != null && jwtUtils.validateJwtToken(token)) {
+            
+            if (tokenBlacklistService.isBlacklisted(token)) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has been revoked (Logged out)");
+                return;
+            }
+
             // 3. Lấy email từ token
             String email = jwtUtils.getEmailFromJwtToken(token);
 

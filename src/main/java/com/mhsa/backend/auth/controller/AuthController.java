@@ -12,7 +12,10 @@ import com.mhsa.backend.auth.dto.LoginRequest;
 import com.mhsa.backend.auth.dto.RegisterRequest;
 import com.mhsa.backend.auth.dto.UserResponse;
 import com.mhsa.backend.auth.service.AuthService;
+import com.mhsa.backend.auth.service.TokenBlacklistService;
+import com.mhsa.backend.auth.utils.JwtUtils;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -21,6 +24,8 @@ import lombok.RequiredArgsConstructor;
 public class AuthController {
 
     private final AuthService authService;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final JwtUtils jwtUtils;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
@@ -35,5 +40,23 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getCurrentUser() {
         return ResponseEntity.ok(authService.getCurrentUser());
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request) {
+        // 1. Lấy token từ header
+        String headerAuth = request.getHeader("Authorization");
+        
+        if (headerAuth != null && headerAuth.startsWith("Bearer ")) {
+            String token = headerAuth.substring(7);
+            
+            // 2. Tính thời gian hết hạn (để set TTL cho Redis)
+            long expiration = jwtUtils.getExpirationDateFromToken(token).getTime();
+            
+            tokenBlacklistService.blacklistToken(token, expiration);
+            
+            return ResponseEntity.ok("Logged out successfully");
+        }
+        return ResponseEntity.badRequest().body("No token found");
     }
 }
