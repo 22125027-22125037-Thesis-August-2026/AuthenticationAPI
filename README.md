@@ -35,6 +35,25 @@ We use Docker to run PostgreSQL and Redis. You do not need to install these data
     - `mhsa_redis` (Port 6379)
     - `mhsa_pgadmin` (Port 5050)
 
+OR
+
+We can use a PowerShell script to automatically check and start Docker + Database + Message Queue. (Check the file to see whehter the Docker is one of the common paths)
+
+1.  Open PowerShell in the project root (`thesis-backend`).
+2.  Run the automated script:
+
+    ```powershell
+    .\start-env.ps1
+    ```
+
+    _(This script will start Docker Desktop if it's not running, wait for the engine, and bring up all containers)._
+
+3.  **Verify:** Check Docker Dashboard. You should see 4 containers running:
+    - `mhsa_postgres` (Port 5433)
+    - `mhsa_redis` (Port 6379)
+    - `mhsa_rabbitmq` (Port 5672/15672)
+    - `mhsa_pgadmin` (Port 5050)
+
 > **Note:** The Database port is set to **5433** to avoid conflicts with any local PostgreSQL installations.
 
 ---
