@@ -2,12 +2,14 @@ package com.mhsa.backend.auth.service;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.mhsa.backend.auth.dto.AuthResponse;
 import com.mhsa.backend.auth.dto.LoginRequest;
 import com.mhsa.backend.auth.dto.RegisterRequest;
+import com.mhsa.backend.auth.dto.UserResponse;
 import com.mhsa.backend.auth.model.User;
 import com.mhsa.backend.auth.model.UserRole;
 import com.mhsa.backend.auth.repository.UserRepository;
@@ -58,5 +60,26 @@ public class AuthService {
         var token = jwtUtils.generateToken(user.getEmail());
 
         return new AuthResponse(token, user.getEmail(), user.getRole().name());
+    }
+
+    public UserResponse getCurrentUser() {
+        // 1. Lấy email từ Security Context (Do JwtFilter đã set vào trước đó)
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentEmail = authentication.getName();
+
+        // 2. Query DB
+        var user = userRepository.findByEmail(currentEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 3. Convert sang DTO (Không trả về password!)
+        return UserResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .dob(user.getDob())
+                .role(user.getRole().name())
+                .creditsBalance(user.getCreditsBalance())
+                .build();
     }
 }

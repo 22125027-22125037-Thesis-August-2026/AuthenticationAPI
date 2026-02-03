@@ -1,6 +1,7 @@
 package com.mhsa.backend.auth.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.mhsa.backend.auth.dto.AuthResponse;
 import com.mhsa.backend.auth.dto.LoginRequest;
 import com.mhsa.backend.auth.dto.RegisterRequest;
+import com.mhsa.backend.auth.dto.UserResponse;
 import com.mhsa.backend.auth.service.AuthService;
 
 import lombok.RequiredArgsConstructor;
@@ -28,5 +30,10 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UserResponse> getCurrentUser() {
+        return ResponseEntity.ok(authService.getCurrentUser());
     }
 }
