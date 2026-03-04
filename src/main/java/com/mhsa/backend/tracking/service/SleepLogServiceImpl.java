@@ -26,19 +26,20 @@ public class SleepLogServiceImpl implements SleepLogService {
 
     @Override
     @Transactional
-    public SleepLogResponse create(SleepLogRequest request) {
-        if (request == null || request.getProfileId() == null) {
+    public SleepLogResponse create(UUID profileId, SleepLogRequest request) {
+        if (request == null || profileId == null) {
             throw new IllegalArgumentException("profileId is required");
         }
 
         SleepLog entityToSave = sleepLogMapper.toEntity(request);
+        entityToSave.setProfileId(profileId);
         if (entityToSave.getSleepStartAt() != null && entityToSave.getSleepEndAt() != null) {
             long minutes = Duration.between(entityToSave.getSleepStartAt(), entityToSave.getSleepEndAt()).toMinutes();
             entityToSave.setDurationMinutes((int) Math.max(minutes, 0));
         }
 
         SleepLog savedEntity = sleepLogRepository.save(entityToSave);
-        streakService.updateStreak(request.getProfileId());
+        streakService.updateStreak(profileId);
 
         return sleepLogMapper.toResponseDTO(savedEntity);
     }

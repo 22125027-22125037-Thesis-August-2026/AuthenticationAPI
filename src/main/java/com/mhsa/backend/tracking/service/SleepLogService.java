@@ -8,7 +8,7 @@ import com.mhsa.backend.tracking.dto.SleepLogResponse;
 
 public interface SleepLogService {
 
-    SleepLogResponse create(SleepLogRequest request);
+    SleepLogResponse create(UUID profileId, SleepLogRequest request);
 
     List<SleepLogResponse> getAllByProfileId(UUID profileId);
 }

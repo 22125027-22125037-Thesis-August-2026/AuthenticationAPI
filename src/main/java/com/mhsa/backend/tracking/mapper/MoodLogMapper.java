@@ -1,5 +1,7 @@
 package com.mhsa.backend.tracking.mapper;
 
+import java.time.LocalDateTime;
+
 import org.springframework.stereotype.Component;
 
 import com.mhsa.backend.tracking.dto.MoodLogRequest;
@@ -15,12 +17,9 @@ public class MoodLogMapper {
         }
 
         MoodLog entity = new MoodLog();
-        entity.setProfileId(dto.getProfileId());
         entity.setMoodScore(dto.getPositivityScore());
         entity.setNote(dto.getNote());
-        if (dto.getLogDate() != null) {
-            entity.setLoggedAt(dto.getLogDate());
-        }
+        entity.setLoggedAt(LocalDateTime.now());
 
         return entity;
     }
@@ -32,12 +31,11 @@ public class MoodLogMapper {
 
         return MoodLogResponse.builder()
                 .id(entity.getId())
-                .profileId(entity.getProfileId())
                 .positivityScore(entity.getMoodScore())
                 .note(entity.getNote())
                 .logDate(entity.getLoggedAt())
-                .createdAt(entity.getCreatedAt())
-                .updatedAt(entity.getUpdatedAt())
+                // .createdAt(entity.getCreatedAt())
+                // .updatedAt(entity.getUpdatedAt())
                 .build();
     }
 }

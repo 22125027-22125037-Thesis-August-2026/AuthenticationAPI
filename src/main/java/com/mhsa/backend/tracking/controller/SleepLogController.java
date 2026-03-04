@@ -5,8 +5,8 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,7 +43,6 @@ public class SleepLogController {
                             name = "CreateSleepLogRequest",
                             value = """
                         {
-                          "profileId": "123e4567-e89b-12d3-a456-426614174000",
                           "bedTime": "2026-02-28T22:30:00",
                           "wakeTime": "2026-03-01T06:30:00",
                           "sleepQuality": 7,
@@ -64,7 +63,6 @@ public class SleepLogController {
                                 value = """
                         {
                           "id": "e0a4a3fb-5f2f-4061-8f23-cf2cc1773ff0",
-                          "profileId": "123e4567-e89b-12d3-a456-426614174000",
                           "bedTime": "2026-02-28T22:30:00",
                           "wakeTime": "2026-03-01T06:30:00",
                           "durationMinutes": 480,
@@ -79,12 +77,13 @@ public class SleepLogController {
         ),
         @ApiResponse(responseCode = "400", description = "Bad Request - validation failed", content = @Content)
     })
-    public ResponseEntity<SleepLogResponse> create(@Valid @RequestBody SleepLogRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(sleepLogService.create(request));
+    public ResponseEntity<SleepLogResponse> create(Authentication authentication, @Valid @RequestBody SleepLogRequest request) {
+        UUID profileId = extractAuthenticatedProfileId(authentication);
+        return ResponseEntity.status(HttpStatus.CREATED).body(sleepLogService.create(profileId, request));
     }
 
-    @GetMapping("/profile/{profileId}")
-    @Operation(summary = "Get sleep logs by profile", description = "Retrieves all sleep logs for a specific profile")
+    @GetMapping("/me")
+    @Operation(summary = "Get my sleep logs", description = "Retrieves all sleep logs for the authenticated user")
     @ApiResponses(value = {
         @ApiResponse(
                 responseCode = "200",
@@ -97,7 +96,6 @@ public class SleepLogController {
                         [
                           {
                             "id": "e0a4a3fb-5f2f-4061-8f23-cf2cc1773ff0",
-                            "profileId": "123e4567-e89b-12d3-a456-426614174000",
                             "bedTime": "2026-02-28T22:30:00",
                             "wakeTime": "2026-03-01T06:30:00",
                             "durationMinutes": 480,
@@ -111,9 +109,17 @@ public class SleepLogController {
                         )
                 )
         ),
-        @ApiResponse(responseCode = "400", description = "Bad Request - invalid profileId", content = @Content)
+        @ApiResponse(responseCode = "400", description = "Bad Request - invalid authenticated user id", content = @Content)
     })
-    public ResponseEntity<List<SleepLogResponse>> getAllByProfileId(@PathVariable UUID profileId) {
+    public ResponseEntity<List<SleepLogResponse>> getAllByProfileId(Authentication authentication) {
+        UUID profileId = extractAuthenticatedProfileId(authentication);
         return ResponseEntity.ok(sleepLogService.getAllByProfileId(profileId));
+    }
+
+    private UUID extractAuthenticatedProfileId(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            throw new IllegalArgumentException("Authenticated user id is required");
+        }
+        return UUID.fromString(authentication.getName());
     }
 }

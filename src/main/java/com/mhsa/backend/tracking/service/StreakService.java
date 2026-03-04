@@ -8,7 +8,7 @@ import com.mhsa.backend.tracking.dto.StreakResponse;
 
 public interface StreakService {
 
-    StreakResponse create(StreakRequest request);
+    StreakResponse create(UUID profileId, StreakRequest request);
 
     List<StreakResponse> getAllByProfileId(UUID profileId);
 

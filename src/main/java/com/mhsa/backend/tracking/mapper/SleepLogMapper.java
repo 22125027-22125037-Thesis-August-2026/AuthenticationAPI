@@ -15,7 +15,6 @@ public class SleepLogMapper {
         }
 
         SleepLog entity = new SleepLog();
-        entity.setProfileId(dto.getProfileId());
         entity.setSleepStartAt(dto.getBedTime());
         entity.setSleepEndAt(dto.getWakeTime());
         entity.setSleepQuality(dto.getSleepQuality());
@@ -31,7 +30,6 @@ public class SleepLogMapper {
 
         return SleepLogResponse.builder()
                 .id(entity.getId())
-                .profileId(entity.getProfileId())
                 .bedTime(entity.getSleepStartAt())
                 .wakeTime(entity.getSleepEndAt())
                 .durationMinutes(entity.getDurationMinutes())

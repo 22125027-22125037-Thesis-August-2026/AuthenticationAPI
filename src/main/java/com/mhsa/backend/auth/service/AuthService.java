@@ -1,5 +1,7 @@
 package com.mhsa.backend.auth.service;
 
+import java.util.UUID;
+
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -57,18 +59,18 @@ public class AuthService {
                 .orElseThrow();
 
         // 3. Tạo Token
-        var token = jwtUtils.generateToken(user.getEmail());
+        var token = jwtUtils.generateToken(user.getId(), user.getEmail());
 
         return new AuthResponse(token, user.getEmail(), user.getRole().name());
     }
 
     public UserResponse getCurrentUser() {
-        // 1. Lấy email từ Security Context (Do JwtFilter đã set vào trước đó)
+        // 1. Lấy userId từ Security Context (Do JwtFilter đã set vào trước đó)
         var authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentEmail = authentication.getName();
+        UUID currentUserId = UUID.fromString(authentication.getName());
 
         // 2. Query DB
-        var user = userRepository.findByEmail(currentEmail)
+        var user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // 3. Convert sang DTO (Không trả về password!)

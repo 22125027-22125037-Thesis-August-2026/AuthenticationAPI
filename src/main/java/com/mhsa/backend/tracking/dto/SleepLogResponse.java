@@ -18,9 +18,6 @@ public class SleepLogResponse {
     @Schema(description = "Sleep log identifier", example = "e0a4a3fb-5f2f-4061-8f23-cf2cc1773ff0")
     private UUID id;
 
-    @Schema(description = "Profile identifier", example = "123e4567-e89b-12d3-a456-426614174000")
-    private UUID profileId;
-
     @Schema(description = "Bed time in ISO-8601", example = "2026-02-28T22:30:00")
     private LocalDateTime bedTime;
 

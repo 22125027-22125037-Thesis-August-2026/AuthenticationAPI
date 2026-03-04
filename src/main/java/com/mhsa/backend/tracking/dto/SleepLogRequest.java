@@ -1,7 +1,6 @@
 package com.mhsa.backend.tracking.dto;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
@@ -15,9 +14,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SleepLogRequest {
-
-    @Schema(description = "Profile identifier", example = "123e4567-e89b-12d3-a456-426614174000")
-    private UUID profileId;
 
     @NotNull
     @Schema(description = "Bed time in ISO-8601", example = "2026-02-28T22:30:00")

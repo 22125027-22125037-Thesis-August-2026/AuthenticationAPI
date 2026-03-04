@@ -14,9 +14,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class MediaAttachmentRequest {
 
-    @Schema(description = "Profile identifier", example = "123e4567-e89b-12d3-a456-426614174000")
-    private UUID profileId;
-
     @Schema(description = "Target reference identifier (diary entry or food log)", example = "4c8de90a-7f59-4906-8619-8416fd8c57d3")
     private UUID referenceId;
 

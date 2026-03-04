@@ -47,6 +47,12 @@ public class DiaryEntry {
     @Column(columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "mood_tag", length = 100)
+    private String moodTag;
+
+    @Column(name = "positivity_score")
+    private Integer positivityScore;
+
     @Column(name = "entry_date", nullable = false)
     @Builder.Default
     private LocalDate entryDate = LocalDate.now();

@@ -28,12 +28,13 @@ public class StreakServiceImpl implements StreakService {
 
     @Override
     @Transactional
-    public StreakResponse create(StreakRequest request) {
-        if (request == null || request.getProfileId() == null) {
+    public StreakResponse create(UUID profileId, StreakRequest request) {
+        if (request == null || profileId == null) {
             throw new IllegalArgumentException("profileId is required");
         }
 
         Streak entityToSave = streakMapper.toEntity(request);
+        entityToSave.setProfileId(profileId);
         if (entityToSave.getStreakType() == null || entityToSave.getStreakType().isBlank()) {
             entityToSave.setStreakType(DEFAULT_STREAK_TYPE);
         }

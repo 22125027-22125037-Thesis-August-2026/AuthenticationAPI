@@ -25,14 +25,15 @@ public class MoodLogServiceImpl implements MoodLogService {
 
     @Override
     @Transactional
-    public MoodLogResponse create(MoodLogRequest request) {
-        if (request == null || request.getProfileId() == null) {
+    public MoodLogResponse create(UUID profileId, MoodLogRequest request) {
+        if (request == null || profileId == null) {
             throw new IllegalArgumentException("profileId is required");
         }
 
         MoodLog entityToSave = moodLogMapper.toEntity(request);
+        entityToSave.setProfileId(profileId);
         MoodLog savedEntity = moodLogRepository.save(entityToSave);
-        streakService.updateStreak(request.getProfileId());
+        streakService.updateStreak(profileId);
 
         return moodLogMapper.toResponseDTO(savedEntity);
     }

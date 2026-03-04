@@ -18,9 +18,6 @@ public class StreakResponse {
     @Schema(description = "Streak identifier", example = "4f927df8-d57f-4475-bf5e-cf8445b1c7f4")
     private UUID id;
 
-    @Schema(description = "Profile identifier", example = "123e4567-e89b-12d3-a456-426614174000")
-    private UUID profileId;
-
     @Schema(description = "Streak type", example = "DAILY_TRACKING")
     private String streakType;
 

@@ -24,9 +24,8 @@ public class DiaryEntryMapper {
         }
 
         DiaryEntry entity = new DiaryEntry();
-        entity.setProfileId(dto.getProfileId());
-        entity.setTitle(dto.getTitle());
-        entity.setEntryDate(dto.getEntryDate());
+        entity.setMoodTag(dto.getMoodTag());
+        entity.setPositivityScore(dto.getPositivityScore());
 
         // TODO: Call EncryptionUtils to encrypt DTO 'content' into Entity 'encryptedContent'
         entity.setContent(null);
@@ -45,10 +44,9 @@ public class DiaryEntryMapper {
 
         DiaryEntryResponse.DiaryEntryResponseBuilder builder = DiaryEntryResponse.builder()
                 .id(entity.getId())
-                .profileId(entity.getProfileId())
-                .title(entity.getTitle())
-                .entryDate(entity.getEntryDate())
-                .mediaAttachments(mediaAttachmentResponses)
+                .moodTag(entity.getMoodTag())
+                .positivityScore(entity.getPositivityScore())
+                .attachments(mediaAttachmentResponses)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt());
 

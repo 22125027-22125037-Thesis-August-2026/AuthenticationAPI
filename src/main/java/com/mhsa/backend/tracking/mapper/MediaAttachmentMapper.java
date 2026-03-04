@@ -17,7 +17,6 @@ public class MediaAttachmentMapper {
         }
 
         MediaAttachment entity = new MediaAttachment();
-        entity.setProfileId(dto.getProfileId());
         entity.setFileUrl(dto.getFileUrl());
         entity.setMimeType(dto.getMimeType());
         entity.setFileSizeBytes(dto.getFileSizeBytes());
@@ -40,23 +39,11 @@ public class MediaAttachmentMapper {
             return null;
         }
 
-        MediaAttachmentResponse.MediaAttachmentResponseBuilder builder = MediaAttachmentResponse.builder()
+        return MediaAttachmentResponse.builder()
                 .id(entity.getId())
-                .profileId(entity.getProfileId())
+                .fileName(entity.getFileName())
+                .fileType(entity.getMimeType())
                 .fileUrl(entity.getFileUrl())
-                .mediaType(entity.getMediaType() != null ? entity.getMediaType().name() : null)
-                .mimeType(entity.getMimeType())
-                .fileSizeBytes(entity.getFileSizeBytes())
-                .createdAt(entity.getCreatedAt());
-
-        if (entity.getDiaryEntry() != null) {
-            builder.referenceType("DIARY_ENTRY");
-            builder.referenceId(entity.getDiaryEntry().getId());
-        } else if (entity.getFoodLogId() != null) {
-            builder.referenceType("FOOD_LOG");
-            builder.referenceId(entity.getFoodLogId());
-        }
-
-        return builder.build();
+                .build();
     }
 }

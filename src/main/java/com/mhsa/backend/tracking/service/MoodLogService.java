@@ -8,7 +8,7 @@ import com.mhsa.backend.tracking.dto.MoodLogResponse;
 
 public interface MoodLogService {
 
-    MoodLogResponse create(MoodLogRequest request);
+    MoodLogResponse create(UUID profileId, MoodLogRequest request);
 
     List<MoodLogResponse> getAllByProfileId(UUID profileId);
 }

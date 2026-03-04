@@ -58,6 +58,9 @@ public class MediaAttachment {
     @Column(name = "file_url", nullable = false, length = 1000)
     private String fileUrl;
 
+    @Column(name = "file_name", length = 255)
+    private String fileName;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "media_type", nullable = false)
     private MediaType mediaType;

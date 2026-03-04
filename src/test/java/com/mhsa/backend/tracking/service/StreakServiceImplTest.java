@@ -23,6 +23,7 @@ import com.mhsa.backend.tracking.mapper.StreakMapper;
 import com.mhsa.backend.tracking.repository.StreakRepository;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings("unused")
 class StreakServiceImplTest {
 
     @InjectMocks
@@ -38,6 +39,7 @@ class StreakServiceImplTest {
     private Streak sampleStreak;
 
     @BeforeEach
+    @SuppressWarnings("unused")
     void setUp() {
         profileId = UUID.randomUUID();
         sampleStreak = Streak.builder()
@@ -145,7 +147,6 @@ class StreakServiceImplTest {
 
     private StreakResponse toResponse(Streak streak) {
         return StreakResponse.builder()
-                .profileId(streak.getProfileId())
                 .streakType(streak.getStreakType())
                 .currentCount(streak.getCurrentCount())
                 .longestCount(streak.getLongestCount())

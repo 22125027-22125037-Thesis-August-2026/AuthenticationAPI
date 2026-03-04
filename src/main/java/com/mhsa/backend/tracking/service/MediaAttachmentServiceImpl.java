@@ -1,7 +1,6 @@
 package com.mhsa.backend.tracking.service;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -28,12 +27,13 @@ public class MediaAttachmentServiceImpl implements MediaAttachmentService {
 
     @Override
     @Transactional
-    public MediaAttachmentResponse create(MediaAttachmentRequest request) {
-        if (request == null || request.getProfileId() == null) {
+    public MediaAttachmentResponse create(UUID profileId, MediaAttachmentRequest request) {
+        if (request == null || profileId == null) {
             throw new IllegalArgumentException("profileId is required");
         }
 
         MediaAttachment entityToSave = mediaAttachmentMapper.toEntity(request);
+        entityToSave.setProfileId(profileId);
         if (request.getReferenceId() != null
                 && request.getReferenceType() != null
                 && "DIARY_ENTRY".equalsIgnoreCase(request.getReferenceType())) {
@@ -51,13 +51,7 @@ public class MediaAttachmentServiceImpl implements MediaAttachmentService {
         }
 
         MediaAttachment savedEntity = mediaAttachmentRepository.save(entityToSave);
-        MediaAttachmentResponse response = mediaAttachmentMapper.toResponseDTO(savedEntity);
-        if (response.getReferenceType() == null && request.getReferenceType() != null) {
-            response.setReferenceType(request.getReferenceType().toUpperCase(Locale.ROOT));
-            response.setReferenceId(request.getReferenceId());
-        }
-
-        return response;
+        return mediaAttachmentMapper.toResponseDTO(savedEntity);
     }
 
     @Override

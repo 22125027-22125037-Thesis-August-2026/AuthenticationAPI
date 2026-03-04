@@ -4,8 +4,8 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,7 +42,6 @@ public class StreakController {
                             name = "CreateStreakRequest",
                             value = """
                         {
-                          "profileId": "123e4567-e89b-12d3-a456-426614174000",
                           "streakType": "DAILY_TRACKING",
                           "currentCount": 5,
                           "longestCount": 12,
@@ -63,7 +62,6 @@ public class StreakController {
                                 value = """
                         {
                           "id": "4f927df8-d57f-4475-bf5e-cf8445b1c7f4",
-                          "profileId": "123e4567-e89b-12d3-a456-426614174000",
                           "streakType": "DAILY_TRACKING",
                           "currentCount": 5,
                           "longestCount": 12,
@@ -77,12 +75,13 @@ public class StreakController {
         ),
         @ApiResponse(responseCode = "400", description = "Bad Request - validation failed", content = @Content)
     })
-    public ResponseEntity<StreakResponse> create(@Valid @RequestBody StreakRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(streakService.create(request));
+    public ResponseEntity<StreakResponse> create(Authentication authentication, @Valid @RequestBody StreakRequest request) {
+        UUID profileId = extractAuthenticatedProfileId(authentication);
+        return ResponseEntity.status(HttpStatus.CREATED).body(streakService.create(profileId, request));
     }
 
-    @GetMapping("/profile/{profileId}")
-    @Operation(summary = "Get current streak by profile", description = "Retrieves the current streak information for a specific profile")
+    @GetMapping("/me")
+    @Operation(summary = "Get my current streak", description = "Retrieves streak information for the authenticated user")
     @ApiResponses(value = {
         @ApiResponse(
                 responseCode = "200",
@@ -94,7 +93,6 @@ public class StreakController {
                                 value = """
                         {
                           "id": "4f927df8-d57f-4475-bf5e-cf8445b1c7f4",
-                          "profileId": "123e4567-e89b-12d3-a456-426614174000",
                           "streakType": "DAILY_TRACKING",
                           "currentCount": 6,
                           "longestCount": 12,
@@ -106,9 +104,17 @@ public class StreakController {
                         )
                 )
         ),
-        @ApiResponse(responseCode = "400", description = "Bad Request - invalid profileId", content = @Content)
+        @ApiResponse(responseCode = "400", description = "Bad Request - invalid authenticated user id", content = @Content)
     })
-    public ResponseEntity<StreakResponse> getByProfileId(@PathVariable UUID profileId) {
+    public ResponseEntity<StreakResponse> getByProfileId(Authentication authentication) {
+        UUID profileId = extractAuthenticatedProfileId(authentication);
         return ResponseEntity.ok(streakService.getByProfileId(profileId));
+    }
+
+    private UUID extractAuthenticatedProfileId(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            throw new IllegalArgumentException("Authenticated user id is required");
+        }
+        return UUID.fromString(authentication.getName());
     }
 }

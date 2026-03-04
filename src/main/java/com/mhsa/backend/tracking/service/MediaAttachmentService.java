@@ -8,7 +8,7 @@ import com.mhsa.backend.tracking.dto.MediaAttachmentResponse;
 
 public interface MediaAttachmentService {
 
-    MediaAttachmentResponse create(MediaAttachmentRequest request);
+    MediaAttachmentResponse create(UUID profileId, MediaAttachmentRequest request);
 
     List<MediaAttachmentResponse> getAllByProfileId(UUID profileId);
 }

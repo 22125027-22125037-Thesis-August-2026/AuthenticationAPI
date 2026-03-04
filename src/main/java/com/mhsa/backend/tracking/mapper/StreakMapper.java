@@ -15,7 +15,6 @@ public class StreakMapper {
         }
 
         Streak entity = new Streak();
-        entity.setProfileId(dto.getProfileId());
         entity.setStreakType(dto.getStreakType());
         entity.setCurrentCount(dto.getCurrentCount());
         entity.setLongestCount(dto.getLongestCount());
@@ -31,7 +30,6 @@ public class StreakMapper {
 
         return StreakResponse.builder()
                 .id(entity.getId())
-                .profileId(entity.getProfileId())
                 .streakType(entity.getStreakType())
                 .currentCount(entity.getCurrentCount())
                 .longestCount(entity.getLongestCount())
