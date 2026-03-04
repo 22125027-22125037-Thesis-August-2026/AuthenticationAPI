@@ -1,6 +1,7 @@
 package com.mhsa.backend.auth.config;
 
 import java.io.IOException;
+import java.util.Collections;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +19,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -36,21 +38,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 2. Nếu có token và token hợp lệ
         if (token != null && jwtUtils.validateJwtToken(token)) {
-            
+
             if (tokenBlacklistService.isBlacklisted(token)) {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has been revoked (Logged out)");
                 return;
             }
 
-            // 3. Lấy email từ token
+            // 3. Extract userId from subject and email claim from token
+            String userId = jwtUtils.getUserIdFromJwtToken(token);
             String email = jwtUtils.getEmailFromJwtToken(token);
 
-            // 4. Load thông tin user từ DB
-            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+            // 4. Load authorities (prefer email claim, fallback to empty authorities)
+            UserDetails userDetails = null;
+            if (email != null && !email.isBlank()) {
+                userDetails = userDetailsService.loadUserByUsername(email);
+            }
 
-            // 5. Set thông tin vào SecurityContext (Xác nhận đã đăng nhập)
+            // 5. Set UUID principal into SecurityContext
             UsernamePasswordAuthenticationToken authentication
-                    = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    = new UsernamePasswordAuthenticationToken(
+                            userId,
+                            null,
+                            userDetails != null ? userDetails.getAuthorities() : Collections.emptyList()
+                    );
 
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 

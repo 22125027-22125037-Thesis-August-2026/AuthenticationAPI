@@ -2,6 +2,7 @@ package com.mhsa.backend.auth.utils;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -27,23 +28,31 @@ public class JwtUtils {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // 1. Tạo Token từ Email (username)
-    public String generateToken(String email) {
+    // 1. Generate token with subject = user UUID; keep email as claim for client-side usage.
+    public String generateToken(UUID userId, String email) {
         return Jwts.builder()
-                .setSubject(email)
+                .setSubject(userId.toString())
+                .claim("email", email)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    // 2. Lấy Email từ Token
-    public String getEmailFromJwtToken(String token) {
+    // 2. Extract user UUID string from subject.
+    public String getUserIdFromJwtToken(String token) {
         return Jwts.parserBuilder().setSigningKey(getSigningKey()).build()
                 .parseClaimsJws(token).getBody().getSubject();
     }
 
-    // 3. Kiểm tra Token có hợp lệ không
+    // 3. Extract email from custom claim.
+    public String getEmailFromJwtToken(String token) {
+        Object email = Jwts.parserBuilder().setSigningKey(getSigningKey()).build()
+                .parseClaimsJws(token).getBody().get("email");
+        return email == null ? null : email.toString();
+    }
+
+    // 4. Validate token signature and expiration.
     public boolean validateJwtToken(String authToken) {
         try {
             Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);
