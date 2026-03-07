@@ -14,5 +14,11 @@ public interface StreakService {
 
     StreakResponse getByProfileId(UUID profileId);
 
+    StreakResponse getById(UUID profileId, UUID id);
+
+    StreakResponse update(UUID profileId, UUID id, StreakRequest request);
+
+    void delete(UUID profileId, UUID id);
+
     StreakResponse updateStreak(UUID profileId);
 }

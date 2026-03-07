@@ -11,4 +11,10 @@ public interface SleepLogService {
     SleepLogResponse create(UUID profileId, SleepLogRequest request);
 
     List<SleepLogResponse> getAllByProfileId(UUID profileId);
+
+    SleepLogResponse getById(UUID profileId, UUID id);
+
+    SleepLogResponse update(UUID profileId, UUID id, SleepLogRequest request);
+
+    void delete(UUID profileId, UUID id);
 }

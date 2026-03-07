@@ -1,6 +1,7 @@
 package com.mhsa.backend.tracking.repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,4 +17,6 @@ public interface MoodLogRepository extends JpaRepository<MoodLog, UUID> {
     // Uses explicit query to keep API name aligned with business wording (logDate).
     @Query("SELECT m FROM MoodLog m WHERE m.profileId = :profileId ORDER BY m.loggedAt DESC")
     List<MoodLog> findByProfileIdOrderByLogDateDesc(@Param("profileId") UUID profileId);
+
+    Optional<MoodLog> findByIdAndProfileId(UUID id, UUID profileId);
 }

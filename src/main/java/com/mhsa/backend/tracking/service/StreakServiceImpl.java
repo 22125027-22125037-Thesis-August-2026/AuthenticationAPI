@@ -5,8 +5,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.mhsa.backend.tracking.dto.StreakRequest;
 import com.mhsa.backend.tracking.dto.StreakResponse;
@@ -79,6 +81,53 @@ public class StreakServiceImpl implements StreakService {
     }
 
     @Override
+    public StreakResponse getById(UUID profileId, UUID id) {
+        if (profileId == null || id == null) {
+            throw new IllegalArgumentException("profileId and id are required");
+        }
+
+        return streakMapper.toResponseDTO(findOwnedStreak(profileId, id));
+    }
+
+    @Override
+    @Transactional
+    public StreakResponse update(UUID profileId, UUID id, StreakRequest request) {
+        if (profileId == null || id == null || request == null) {
+            throw new IllegalArgumentException("profileId, id and request are required");
+        }
+
+        Streak existing = findOwnedStreak(profileId, id);
+        existing.setStreakType(request.getStreakType());
+        existing.setCurrentCount(request.getCurrentCount());
+        existing.setLongestCount(request.getLongestCount());
+        existing.setLastLoggedAt(request.getLastLoggedAt());
+
+        if (existing.getStreakType() == null || existing.getStreakType().isBlank()) {
+            existing.setStreakType(DEFAULT_STREAK_TYPE);
+        }
+        if (existing.getCurrentCount() == null) {
+            existing.setCurrentCount(0);
+        }
+        if (existing.getLongestCount() == null) {
+            existing.setLongestCount(existing.getCurrentCount());
+        }
+
+        Streak savedEntity = streakRepository.save(existing);
+        return streakMapper.toResponseDTO(savedEntity);
+    }
+
+    @Override
+    @Transactional
+    public void delete(UUID profileId, UUID id) {
+        if (profileId == null || id == null) {
+            throw new IllegalArgumentException("profileId and id are required");
+        }
+
+        Streak existing = findOwnedStreak(profileId, id);
+        streakRepository.delete(existing);
+    }
+
+    @Override
     @Transactional
     public StreakResponse updateStreak(UUID profileId) {
         if (profileId == null) {
@@ -111,5 +160,10 @@ public class StreakServiceImpl implements StreakService {
         streak.setLastLoggedAt(now);
         Streak savedEntity = streakRepository.save(streak);
         return streakMapper.toResponseDTO(savedEntity);
+    }
+
+    private Streak findOwnedStreak(UUID profileId, UUID id) {
+        return streakRepository.findByIdAndProfileId(id, profileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Streak not found"));
     }
 }

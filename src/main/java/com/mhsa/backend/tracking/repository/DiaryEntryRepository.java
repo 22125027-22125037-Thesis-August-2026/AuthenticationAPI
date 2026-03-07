@@ -1,6 +1,7 @@
 package com.mhsa.backend.tracking.repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,4 +13,6 @@ import com.mhsa.backend.tracking.entity.DiaryEntry;
 public interface DiaryEntryRepository extends JpaRepository<DiaryEntry, UUID> {
 
     List<DiaryEntry> findByProfileIdOrderByCreatedAtDesc(UUID profileId);
+
+    Optional<DiaryEntry> findByIdAndProfileId(UUID id, UUID profileId);
 }

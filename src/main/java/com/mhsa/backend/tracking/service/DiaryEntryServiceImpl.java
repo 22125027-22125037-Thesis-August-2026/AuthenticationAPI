@@ -6,9 +6,11 @@ import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.mhsa.backend.tracking.dto.DiaryEntryRequest;
 import com.mhsa.backend.tracking.dto.DiaryEntryResponse;
@@ -94,6 +96,91 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
                     return response;
                 })
                 .toList();
+    }
+
+    @Override
+    public DiaryEntryResponse getById(UUID profileId, UUID id) {
+        if (profileId == null || id == null) {
+            throw new IllegalArgumentException("profileId and id are required");
+        }
+
+        DiaryEntry entry = findOwnedDiaryEntry(profileId, id);
+        DiaryEntryResponse response = diaryEntryMapper.toResponseDTO(entry);
+        response.setContent(decrypt(entry.getContent()));
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public DiaryEntryResponse update(UUID profileId, UUID id, DiaryEntryRequest request, List<MultipartFile> files) {
+        if (profileId == null || id == null) {
+            throw new IllegalArgumentException("profileId and id are required");
+        }
+        if (request == null && (files == null || files.isEmpty())) {
+            throw new IllegalArgumentException("request or attachments are required");
+        }
+
+        DiaryEntry existing = findOwnedDiaryEntry(profileId, id);
+
+        if (request != null) {
+            if (request.getContent() != null && request.getContent().isBlank()) {
+                throw new IllegalArgumentException("content must not be blank");
+            }
+            if (request.getContent() != null) {
+                existing.setContent(encrypt(request.getContent()));
+            }
+            existing.setMoodTag(request.getMoodTag());
+            existing.setPositivityScore(request.getPositivityScore());
+        }
+
+        if (files != null) {
+            existing.getMediaAttachments().clear();
+
+            List<MediaAttachment> attachmentsToSave = files.stream()
+                    .filter(file -> file != null && !file.isEmpty())
+                    .map(file -> {
+                        String fileName = file.getOriginalFilename();
+                        String fileType = file.getContentType();
+                        String generatedFileUrl = String.format("/files/diary/%s/%s", existing.getId(), fileName);
+
+                        return MediaAttachment.builder()
+                                .profileId(profileId)
+                                .diaryEntry(existing)
+                                .fileName(fileName)
+                                .mimeType(fileType)
+                                .fileUrl(generatedFileUrl)
+                                .fileSizeBytes(file.getSize())
+                                .mediaType(resolveMediaType(fileType))
+                                .build();
+                    })
+                    .toList();
+
+            if (!attachmentsToSave.isEmpty()) {
+                List<MediaAttachment> savedAttachments = mediaAttachmentRepository.saveAll(attachmentsToSave);
+                existing.getMediaAttachments().addAll(savedAttachments);
+            }
+        }
+
+        DiaryEntry savedEntity = diaryEntryRepository.save(existing);
+        DiaryEntryResponse response = diaryEntryMapper.toResponseDTO(savedEntity);
+        response.setContent(decrypt(savedEntity.getContent()));
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public void delete(UUID profileId, UUID id) {
+        if (profileId == null || id == null) {
+            throw new IllegalArgumentException("profileId and id are required");
+        }
+
+        DiaryEntry existing = findOwnedDiaryEntry(profileId, id);
+        diaryEntryRepository.delete(existing);
+    }
+
+    private DiaryEntry findOwnedDiaryEntry(UUID profileId, UUID id) {
+        return diaryEntryRepository.findByIdAndProfileId(id, profileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary entry not found"));
     }
 
     private String encrypt(String plainText) {

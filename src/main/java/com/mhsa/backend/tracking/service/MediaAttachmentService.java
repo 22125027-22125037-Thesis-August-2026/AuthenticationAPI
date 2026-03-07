@@ -11,4 +11,10 @@ public interface MediaAttachmentService {
     MediaAttachmentResponse create(UUID profileId, MediaAttachmentRequest request);
 
     List<MediaAttachmentResponse> getAllByProfileId(UUID profileId);
+
+    MediaAttachmentResponse getById(UUID profileId, UUID id);
+
+    MediaAttachmentResponse update(UUID profileId, UUID id, MediaAttachmentRequest request);
+
+    void delete(UUID profileId, UUID id);
 }

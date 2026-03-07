@@ -93,13 +93,13 @@ Once the server is running, you can access the following tools:
 
 Test APIs directly in the browser.
 
-- **URL:** [http://localhost:8080/swagger-ui.html](https://www.google.com/search?q=http://localhost:8080/swagger-ui.html)
+- **URL:** [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 
 #### 🗄️ Database Management (pgAdmin)
 
 A web interface to view and manage database tables.
 
-- **URL:** [http://localhost:5050](https://www.google.com/search?q=http://localhost:5050)
+- **URL:** [http://localhost:5050](http://localhost:5050)
 - **Email:** `admin@mhsa.com`
 - **Password:** `admin`
 

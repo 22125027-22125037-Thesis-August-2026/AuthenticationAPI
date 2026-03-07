@@ -12,4 +12,6 @@ import com.mhsa.backend.tracking.entity.Streak;
 public interface StreakRepository extends JpaRepository<Streak, UUID> {
 
     Optional<Streak> findByProfileId(UUID profileId);
+
+    Optional<Streak> findByIdAndProfileId(UUID id, UUID profileId);
 }

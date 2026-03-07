@@ -11,4 +11,10 @@ public interface MoodLogService {
     MoodLogResponse create(UUID profileId, MoodLogRequest request);
 
     List<MoodLogResponse> getAllByProfileId(UUID profileId);
+
+    MoodLogResponse getById(UUID profileId, UUID id);
+
+    MoodLogResponse update(UUID profileId, UUID id, MoodLogRequest request);
+
+    void delete(UUID profileId, UUID id);
 }

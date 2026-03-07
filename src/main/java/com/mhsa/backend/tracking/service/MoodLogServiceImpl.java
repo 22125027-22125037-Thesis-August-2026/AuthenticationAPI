@@ -3,8 +3,10 @@ package com.mhsa.backend.tracking.service;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.mhsa.backend.tracking.dto.MoodLogRequest;
 import com.mhsa.backend.tracking.dto.MoodLogResponse;
@@ -48,5 +50,45 @@ public class MoodLogServiceImpl implements MoodLogService {
                 .stream()
                 .map(moodLogMapper::toResponseDTO)
                 .toList();
+    }
+
+    @Override
+    public MoodLogResponse getById(UUID profileId, UUID id) {
+        if (profileId == null || id == null) {
+            throw new IllegalArgumentException("profileId and id are required");
+        }
+
+        return moodLogMapper.toResponseDTO(findOwnedMoodLog(profileId, id));
+    }
+
+    @Override
+    @Transactional
+    public MoodLogResponse update(UUID profileId, UUID id, MoodLogRequest request) {
+        if (profileId == null || id == null || request == null) {
+            throw new IllegalArgumentException("profileId, id and request are required");
+        }
+
+        MoodLog existing = findOwnedMoodLog(profileId, id);
+        existing.setMoodScore(request.getPositivityScore());
+        existing.setNote(request.getNote());
+
+        MoodLog savedEntity = moodLogRepository.save(existing);
+        return moodLogMapper.toResponseDTO(savedEntity);
+    }
+
+    @Override
+    @Transactional
+    public void delete(UUID profileId, UUID id) {
+        if (profileId == null || id == null) {
+            throw new IllegalArgumentException("profileId and id are required");
+        }
+
+        MoodLog existing = findOwnedMoodLog(profileId, id);
+        moodLogRepository.delete(existing);
+    }
+
+    private MoodLog findOwnedMoodLog(UUID profileId, UUID id) {
+        return moodLogRepository.findByIdAndProfileId(id, profileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mood log not found"));
     }
 }

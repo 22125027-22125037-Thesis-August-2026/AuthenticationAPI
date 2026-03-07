@@ -15,9 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mhsa.backend.common.util.SecurityUtils;
-import com.mhsa.backend.tracking.dto.MediaAttachmentRequest;
-import com.mhsa.backend.tracking.dto.MediaAttachmentResponse;
-import com.mhsa.backend.tracking.service.MediaAttachmentService;
+import com.mhsa.backend.tracking.dto.FoodLogRequest;
+import com.mhsa.backend.tracking.dto.FoodLogResponse;
+import com.mhsa.backend.tracking.service.FoodLogService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,46 +25,46 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/tracking/media")
+@RequestMapping("/api/v1/tracking/foods")
 @RequiredArgsConstructor
-@Tag(name = "Media Attachment API")
-public class MediaAttachmentController {
+@Tag(name = "Food API")
+public class FoodLogController {
 
-    private final MediaAttachmentService mediaAttachmentService;
+    private final FoodLogService foodLogService;
 
     @PostMapping("/")
-    @Operation(summary = "Create a new media attachment")
-    public ResponseEntity<MediaAttachmentResponse> create(@Valid @RequestBody MediaAttachmentRequest request) {
+    @Operation(summary = "Create a new food log")
+    public ResponseEntity<FoodLogResponse> create(@Valid @RequestBody FoodLogRequest request) {
         UUID profileId = SecurityUtils.getCurrentProfileId();
-        return ResponseEntity.status(HttpStatus.CREATED).body(mediaAttachmentService.create(profileId, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(foodLogService.create(profileId, request));
     }
 
     @GetMapping("/")
-    @Operation(summary = "Get all media attachments")
-    public ResponseEntity<List<MediaAttachmentResponse>> getAll() {
+    @Operation(summary = "Get all food logs")
+    public ResponseEntity<List<FoodLogResponse>> getAll() {
         UUID profileId = SecurityUtils.getCurrentProfileId();
-        return ResponseEntity.ok(mediaAttachmentService.getAllByProfileId(profileId));
+        return ResponseEntity.ok(foodLogService.getAllByProfile(profileId));
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get a media attachment by ID")
-    public ResponseEntity<MediaAttachmentResponse> getById(@PathVariable UUID id) {
+    @Operation(summary = "Get a food log by ID")
+    public ResponseEntity<FoodLogResponse> getById(@PathVariable UUID id) {
         UUID profileId = SecurityUtils.getCurrentProfileId();
-        return ResponseEntity.ok(mediaAttachmentService.getById(profileId, id));
+        return ResponseEntity.ok(foodLogService.getById(profileId, id));
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update a media attachment by ID")
-    public ResponseEntity<MediaAttachmentResponse> update(@PathVariable UUID id, @Valid @RequestBody MediaAttachmentRequest request) {
+    @Operation(summary = "Update a food log by ID")
+    public ResponseEntity<FoodLogResponse> update(@PathVariable UUID id, @Valid @RequestBody FoodLogRequest request) {
         UUID profileId = SecurityUtils.getCurrentProfileId();
-        return ResponseEntity.ok(mediaAttachmentService.update(profileId, id, request));
+        return ResponseEntity.ok(foodLogService.update(profileId, id, request));
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete a media attachment by ID")
+    @Operation(summary = "Delete a food log by ID")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         UUID profileId = SecurityUtils.getCurrentProfileId();
-        mediaAttachmentService.delete(profileId, id);
+        foodLogService.delete(profileId, id);
         return ResponseEntity.noContent().build();
     }
 }
