@@ -15,6 +15,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class DiaryEntryRequest {
 
+    @Schema(description = "Optional diary title", example = "A Productive Monday")
+    private String title;
+
     @NotBlank
     @Schema(description = "Plain-text diary content entered by user", example = "Today was a productive day, I felt really focused.")
     private String content;

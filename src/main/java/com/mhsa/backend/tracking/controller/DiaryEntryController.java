@@ -1,6 +1,7 @@
 package com.mhsa.backend.tracking.controller;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mhsa.backend.common.util.SecurityUtils;
 import com.mhsa.backend.tracking.dto.DiaryEntryRequest;
 import com.mhsa.backend.tracking.dto.DiaryEntryResponse;
@@ -23,25 +26,40 @@ import com.mhsa.backend.tracking.service.DiaryEntryService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/tracking/diaries")
+@Slf4j
 @RequiredArgsConstructor
 @Tag(name = "Diary API")
 public class DiaryEntryController {
 
     private final DiaryEntryService diaryEntryService;
+    private final ObjectMapper objectMapper;
+    private final Validator validator;
 
     @PostMapping(value = "/", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Create a new diary entry")
     public ResponseEntity<DiaryEntryResponse> create(
-            @RequestPart("diary") @Valid DiaryEntryRequest request,
+            @RequestPart("diary") String diaryJson,
             @RequestPart(value = "attachments", required = false) List<MultipartFile> files
     ) {
+        int attachmentCount = files == null ? 0 : files.size();
+        log.info("Create diary request received with {} attachment(s)", attachmentCount);
+
+        DiaryEntryRequest request = parseAndValidateDiaryRequest(diaryJson, false);
         UUID profileId = SecurityUtils.getCurrentProfileId();
-        return ResponseEntity.status(HttpStatus.CREATED).body(diaryEntryService.create(profileId, request, files));
+        log.debug("Submitting create diary request for profileId={}", profileId);
+
+        DiaryEntryResponse response = diaryEntryService.create(profileId, request, files);
+        log.info("Diary entry created successfully for profileId={}", profileId);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/")
@@ -62,9 +80,10 @@ public class DiaryEntryController {
     @Operation(summary = "Update a diary entry by ID")
     public ResponseEntity<DiaryEntryResponse> update(
             @PathVariable UUID id,
-            @RequestPart(value = "diary", required = false) @Valid DiaryEntryRequest request,
+            @RequestPart(value = "diary", required = false) String diaryJson,
             @RequestPart(value = "attachments", required = false) List<MultipartFile> files
     ) {
+        DiaryEntryRequest request = parseAndValidateDiaryRequest(diaryJson, true);
         UUID profileId = SecurityUtils.getCurrentProfileId();
         return ResponseEntity.ok(diaryEntryService.update(profileId, id, request, files));
     }
@@ -75,5 +94,28 @@ public class DiaryEntryController {
         UUID profileId = SecurityUtils.getCurrentProfileId();
         diaryEntryService.delete(profileId, id);
         return ResponseEntity.noContent().build();
+    }
+
+    private DiaryEntryRequest parseAndValidateDiaryRequest(String diaryJson, boolean allowEmpty) {
+        if (diaryJson == null || diaryJson.isBlank()) {
+            if (!allowEmpty) {
+                throw new RuntimeException("Missing required 'diary' payload");
+            }
+            return null;
+        }
+
+        DiaryEntryRequest request;
+        try {
+            request = objectMapper.readValue(diaryJson, DiaryEntryRequest.class);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Invalid diary JSON payload", e);
+        }
+
+        Set<ConstraintViolation<DiaryEntryRequest>> violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new ConstraintViolationException(violations);
+        }
+
+        return request;
     }
 }

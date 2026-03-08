@@ -22,6 +22,9 @@ public class DiaryEntryResponse {
     @Schema(description = "Decrypted diary content shown to user", example = "Today was a productive day, I felt really focused.")
     private String content;
 
+    @Schema(description = "Diary title", example = "A Productive Monday")
+    private String title;
+
     @Schema(description = "Mood tag of the diary entry", example = "MOTIVATED")
     private String moodTag;
 

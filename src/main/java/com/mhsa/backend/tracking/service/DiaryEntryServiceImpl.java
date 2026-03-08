@@ -21,10 +21,12 @@ import com.mhsa.backend.tracking.repository.DiaryEntryRepository;
 import com.mhsa.backend.tracking.repository.MediaAttachmentRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class DiaryEntryServiceImpl implements DiaryEntryService {
 
     private final DiaryEntryRepository diaryEntryRepository;
@@ -36,8 +38,12 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
     @Transactional
     public DiaryEntryResponse create(UUID profileId, DiaryEntryRequest request, List<MultipartFile> files) {
         if (request == null || profileId == null) {
+            log.warn("Create diary entry rejected: profileId or request is null. profileId={}", profileId);
             throw new IllegalArgumentException("profileId is required");
         }
+
+        int attachmentCount = files == null ? 0 : files.size();
+        log.info("Creating diary entry for profileId={} with {} attachment(s)", profileId, attachmentCount);
 
         // 1) Save diary metadata/content first.
         DiaryEntry entityToSave = diaryEntryMapper.toEntity(request);
@@ -54,6 +60,8 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
                     .map(file -> {
                         String fileName = file.getOriginalFilename();
                         String fileType = file.getContentType();
+                        log.debug("Preparing attachment metadata: profileId={}, fileName={}, mimeType={}", profileId,
+                                fileName, fileType);
 
                         // TODO: Implement actual file storage (e.g., local disk or S3) and generate fileUrl.
                         String generatedFileUrl = String.format("/files/diary/%s/%s", savedEntity.getId(), fileName);
@@ -72,13 +80,16 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
 
             List<MediaAttachment> savedAttachments = mediaAttachmentRepository.saveAll(attachmentsToSave);
             savedEntity.getMediaAttachments().addAll(savedAttachments);
+            log.info("Saved {} attachment record(s) for diaryEntryId={}", savedAttachments.size(), savedEntity.getId());
         }
 
         // 3) Update streak and return response DTO.
         streakService.updateStreak(profileId);
+        log.info("Streak updated for profileId={} after diary entry creation", profileId);
 
         DiaryEntryResponse response = diaryEntryMapper.toResponseDTO(savedEntity);
         response.setContent(decrypt(savedEntity.getContent()));
+        log.info("Diary entry created successfully. profileId={}, diaryEntryId={}", profileId, savedEntity.getId());
         return response;
     }
 
@@ -126,8 +137,14 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
             if (request.getContent() != null && request.getContent().isBlank()) {
                 throw new IllegalArgumentException("content must not be blank");
             }
+            if (request.getTitle() != null && request.getTitle().isBlank()) {
+                throw new IllegalArgumentException("title must not be blank");
+            }
             if (request.getContent() != null) {
                 existing.setContent(encrypt(request.getContent()));
+            }
+            if (request.getTitle() != null) {
+                existing.setTitle(request.getTitle());
             }
             existing.setMoodTag(request.getMoodTag());
             existing.setPositivityScore(request.getPositivityScore());

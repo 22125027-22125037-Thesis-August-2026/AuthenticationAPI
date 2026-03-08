@@ -24,6 +24,7 @@ public class DiaryEntryMapper {
         }
 
         DiaryEntry entity = new DiaryEntry();
+        entity.setTitle(dto.getTitle());
         entity.setMoodTag(dto.getMoodTag());
         entity.setPositivityScore(dto.getPositivityScore());
 
@@ -44,6 +45,7 @@ public class DiaryEntryMapper {
 
         DiaryEntryResponse.DiaryEntryResponseBuilder builder = DiaryEntryResponse.builder()
                 .id(entity.getId())
+                .title(entity.getTitle())
                 .moodTag(entity.getMoodTag())
                 .positivityScore(entity.getPositivityScore())
                 .attachments(mediaAttachmentResponses)
