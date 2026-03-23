@@ -56,3 +56,14 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Bỏ qua các file chứa biến môi trường cục bộ
+.env
+.env.local
+application-secret.yml
+application-local.yml
+
+# Bỏ qua các thư mục build và IDE
+target/
+.idea/
+*.iml
