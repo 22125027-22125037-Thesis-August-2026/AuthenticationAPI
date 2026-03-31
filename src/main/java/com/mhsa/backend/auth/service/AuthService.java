@@ -67,7 +67,16 @@ public class AuthService {
     public UserResponse getCurrentUser() {
         // 1. Lấy userId từ Security Context (Do JwtFilter đã set vào trước đó)
         var authentication = SecurityContextHolder.getContext().getAuthentication();
-        UUID currentUserId = UUID.fromString(authentication.getName());
+        if (authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getName())) {
+            throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException("Unauthorized");
+        }
+        UUID currentUserId;
+        try {
+            currentUserId = UUID.fromString(authentication.getName());
+        } catch (IllegalArgumentException e) {
+            throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException("Unauthorized");
+        }
 
         // 2. Query DB
         var user = userRepository.findById(currentUserId)
