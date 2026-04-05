@@ -1,5 +1,6 @@
 package com.mhsa.backend.ai.service;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,8 @@ public class GeminiAiService {
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ContextAggregatorService contextAggregatorService;
+    private final CrisisDetectionService crisisDetectionService;
+    private final PiiScrubberService piiScrubberService;
 
     @Value("${gemini.api.key}")
     private String geminiApiKey;
@@ -44,6 +47,10 @@ public class GeminiAiService {
     private String geminiApiUrl;
 
     private static final String BASE_SYSTEM_PROMPT = "Ngươi là 'Bạn Tâm Giao', một trợ lý tâm lý học thấu cảm. Luôn xưng là 'mình' và gọi người dùng là 'bạn'. Hãy tham khảo [USER CONTEXT] dưới đây để đưa ra lời khuyên cá nhân hóa, nhưng KHÔNG ĐƯỢC nhắc lại dữ liệu một cách máy móc. Hãy an ủi tự nhiên.";
+    private static final String EMERGENCY_RESPONSE = "Mình rất tiếc khi nghe bạn đang ở trạng thái nguy cấp. "
+            + "Nếu bạn có ý định làm hại bản thân hoặc người khác, hãy gọi ngay 115 để được hỗ trợ khẩn cấp. "
+            + "Bạn cũng có thể gọi 19001567 để được tư vấn và hỗ trợ tâm lý. "
+            + "Bạn không phải đối mặt chuyện này một mình.";
 
     /**
      * Send a message to Gemini AI and get a response
@@ -54,6 +61,7 @@ public class GeminiAiService {
     public AiChatResponse sendMessage(AiChatRequest request, UUID profileId) {
         try {
             log.info("Sending message to Gemini API. SessionId: {}", request.getSessionId());
+            String rawUserMessage = request.getContent();
 
             // 1. Find or create ChatSession
             ChatSession session;
@@ -68,37 +76,60 @@ public class GeminiAiService {
                 session = chatSessionRepository.save(session);
             }
 
-            // 2. Save user's message
+            // 2. Save user's raw message for therapist review/audit.
             ChatMessage userMessage = ChatMessage.builder()
                     .session(session)
                     .sender("USER")
-                    .content(request.getContent())
+                    .content(rawUserMessage)
                     .sentAt(java.time.LocalDateTime.now())
                     .build();
             chatMessageRepository.save(userMessage);
 
-            // 3. Get last 10 messages for context
+            // 3. Detect crisis intent and short-circuit with emergency response.
+            if (crisisDetectionService.isCrisisDetected(rawUserMessage)) {
+                ChatMessage emergencyMessage = ChatMessage.builder()
+                        .session(session)
+                        .sender("AI")
+                        .content(EMERGENCY_RESPONSE)
+                        .sentAt(java.time.LocalDateTime.now())
+                        .build();
+                chatMessageRepository.save(emergencyMessage);
+
+                return AiChatResponse.builder()
+                        .sessionId(session.getId().toString())
+                        .messageId(emergencyMessage.getId().toString())
+                        .content(EMERGENCY_RESPONSE)
+                        .sentimentDetected("CRISIS")
+                        .crisisDetected(true)
+                        .build();
+            }
+
+            String sanitizedUserMessage = piiScrubberService.scrub(rawUserMessage);
+
+            // 4. Get last messages for context (sanitized before outbound call).
             List<ChatMessage> lastMessages = chatMessageRepository.findTop10BySessionOrderBySentAtDesc(session);
-            java.util.Collections.reverse(lastMessages); // oldest first
+            Collections.reverse(lastMessages); // oldest first
             StringBuilder chatHistoryBuilder = new StringBuilder();
             for (ChatMessage msg : lastMessages) {
-                chatHistoryBuilder.append(msg.getSender()).append(": ").append(msg.getContent()).append("\n");
+                String sanitizedHistoryContent = piiScrubberService.scrub(msg.getContent());
+                chatHistoryBuilder.append(msg.getSender()).append(": ").append(sanitizedHistoryContent).append("\n");
             }
             String chatHistory = chatHistoryBuilder.toString();
 
-            // 4. Get user context summary
+            // 5. Get and sanitize user context summary before cloud transmission.
             String userContext = contextAggregatorService.getUserContextSummary(profileId);
+            String sanitizedUserContext = piiScrubberService.scrub(userContext);
 
-            // 5. Compose the mega system prompt
-            String systemPrompt = BASE_SYSTEM_PROMPT + "\n" + userContext;
+            // 6. Compose the mega system prompt
+            String systemPrompt = BASE_SYSTEM_PROMPT + "\n" + sanitizedUserContext;
 
-            // 6. Build prompt: systemPrompt + chat history + user message
+            // 7. Build prompt: system prompt + sanitized history + sanitized incoming message
             StringBuilder megaPrompt = new StringBuilder();
             megaPrompt.append(systemPrompt).append("\n");
             megaPrompt.append(chatHistory);
-            megaPrompt.append("USER: ").append(request.getContent());
+            megaPrompt.append("USER: ").append(sanitizedUserMessage);
 
-            // 7. Build Gemini request
+            // 8. Build Gemini request
             Map<String, Object> requestPayload = buildGeminiRequest(megaPrompt.toString(), systemPrompt);
 
             // Prepare headers
@@ -120,7 +151,7 @@ public class GeminiAiService {
                 String aiResponse = parseGeminiResponse(response.getBody());
                 log.info("Successfully received response from Gemini API");
 
-                // 8. Save AI response
+                // 9. Save AI response
                 ChatMessage aiMessage = ChatMessage.builder()
                         .session(session)
                         .sender("AI")

@@ -5,7 +5,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123456
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-123456}
       POSTGRES_DB: mhsa_db
     ports:
       - "5433:5432"
@@ -31,14 +31,14 @@ services:
       - postgres
 
   rabbitmq:
-      image: rabbitmq:3-management-alpine
-      container_name: mhsa_rabbitmq
-      restart: always
-      ports:
-        - "5672:5672"   # Port giao tiếp giữa các service
-        - "15672:15672" # Port trang quản lý (Management UI)
-      environment:
-        RABBITMQ_DEFAULT_USER: guest
-        RABBITMQ_DEFAULT_PASS: guest
+    image: rabbitmq:3-management-alpine
+    container_name: mhsa_rabbitmq
+    restart: always
+    ports:
+      - "5672:5672" # Port giao tiếp giữa các service
+      - "15672:15672" # Port trang quản lý (Management UI)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
 volumes:
   postgres_data:
