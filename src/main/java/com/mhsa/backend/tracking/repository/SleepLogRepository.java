@@ -14,5 +14,7 @@ public interface SleepLogRepository extends JpaRepository<SleepLog, UUID> {
 
     List<SleepLog> findByProfileIdOrderByCreatedAtDesc(UUID profileId);
 
+    Optional<SleepLog> findTopByProfileIdOrderByCreatedAtDesc(UUID profileId);
+
     Optional<SleepLog> findByIdAndProfileId(UUID id, UUID profileId);
 }

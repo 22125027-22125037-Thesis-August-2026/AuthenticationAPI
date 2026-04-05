@@ -18,5 +18,7 @@ public interface MoodLogRepository extends JpaRepository<MoodLog, UUID> {
     @Query("SELECT m FROM MoodLog m WHERE m.profileId = :profileId ORDER BY m.loggedAt DESC")
     List<MoodLog> findByProfileIdOrderByLogDateDesc(@Param("profileId") UUID profileId);
 
+    Optional<MoodLog> findTopByProfileIdOrderByLoggedAtDesc(UUID profileId);
+
     Optional<MoodLog> findByIdAndProfileId(UUID id, UUID profileId);
 }

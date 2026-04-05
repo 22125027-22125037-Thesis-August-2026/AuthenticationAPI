@@ -1,6 +1,5 @@
 package com.mhsa.backend.auth.repository;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,7 +16,4 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     // Kiểm tra email đã tồn tại chưa (khi đăng ký)
     Boolean existsByEmail(String email);
-
-    // Lấy danh sách con của một Parent
-    List<User> findByParentId(UUID parentId);
 }

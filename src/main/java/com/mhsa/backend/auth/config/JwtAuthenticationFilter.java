@@ -2,6 +2,7 @@ package com.mhsa.backend.auth.config;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.UUID;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -12,6 +13,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.mhsa.backend.auth.service.CustomUserDetailsService;
 import com.mhsa.backend.auth.service.TokenBlacklistService;
+import com.mhsa.backend.auth.security.AuthenticatedUserPrincipal;
 import com.mhsa.backend.auth.utils.JwtUtils;
 
 import jakarta.servlet.FilterChain;
@@ -44,9 +46,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // 3. Extract userId from subject and email claim from token
+            // 3. Extract userId from subject and email/profile/role claims from token
             String userId = jwtUtils.getUserIdFromJwtToken(token);
             String email = jwtUtils.getEmailFromJwtToken(token);
+            UUID profileId = jwtUtils.getProfileIdFromJwtToken(token);
+            var role = jwtUtils.getRoleFromJwtToken(token);
 
             // 4. Load authorities (prefer email claim, fallback to empty authorities)
             UserDetails userDetails = null;
@@ -54,10 +58,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 userDetails = userDetailsService.loadUserByUsername(email);
             }
 
-            // 5. Set UUID principal into SecurityContext
+            // 5. Set authenticated principal into SecurityContext
             UsernamePasswordAuthenticationToken authentication
                     = new UsernamePasswordAuthenticationToken(
-                            userId,
+                            new AuthenticatedUserPrincipal(UUID.fromString(userId), profileId, email, role),
                             null,
                             userDetails != null ? userDetails.getAuthorities() : Collections.emptyList()
                     );

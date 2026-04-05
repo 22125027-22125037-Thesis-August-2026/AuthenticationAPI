@@ -7,16 +7,15 @@ import java.util.UUID;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -42,28 +41,23 @@ public class User {
 
     private String password; // Hash password
 
-    // --- Thông tin cá nhân ---
     @Column(nullable = false)
+    @Convert(converter = RoleAttributeConverter.class)
+    private Role role;
+
+    // --- Legacy / transitional fields kept during migration ---
     private String fullName;
 
     private LocalDate dob; // Ngày sinh
 
     private String phoneNumber;
 
-    // --- Logic Gia đình (Parent - Child) ---
-    @Enumerated(EnumType.STRING)
-    private UserRole role; // MANAGER (Cha mẹ) hoặc DEPENDENT (Con)
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
-    private User parent; // Nếu là con, trường này sẽ trỏ về ID của cha mẹ
-
-    @Column(length = 4)
-    private String pinCode; // Mã PIN 4 số (Chỉ dành cho con đăng nhập)
-
     // --- Ví tiền (Quản lý chung bởi Parent) ---
     @Builder.Default
     private Integer creditsBalance = 0;
+
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private Profile profile;
 
     // --- Audit ---
     @CreationTimestamp

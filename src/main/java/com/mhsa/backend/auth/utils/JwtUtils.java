@@ -13,6 +13,8 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
+import com.mhsa.backend.auth.model.Role;
+
 @Component
 public class JwtUtils {
 
@@ -28,11 +30,13 @@ public class JwtUtils {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // 1. Generate token with subject = user UUID; keep email as claim for client-side usage.
-    public String generateToken(UUID userId, String email) {
+    // 1. Generate token with subject = user UUID; keep email, profileId and role as claims.
+    public String generateToken(UUID userId, UUID profileId, String email, Role role) {
         return Jwts.builder()
                 .setSubject(userId.toString())
                 .claim("email", email)
+                .claim("profileId", profileId == null ? null : profileId.toString())
+                .claim("role", role == null ? null : role.name())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -50,6 +54,18 @@ public class JwtUtils {
         Object email = Jwts.parserBuilder().setSigningKey(getSigningKey()).build()
                 .parseClaimsJws(token).getBody().get("email");
         return email == null ? null : email.toString();
+    }
+
+    public UUID getProfileIdFromJwtToken(String token) {
+        Object profileId = Jwts.parserBuilder().setSigningKey(getSigningKey()).build()
+                .parseClaimsJws(token).getBody().get("profileId");
+        return profileId == null ? null : UUID.fromString(profileId.toString());
+    }
+
+    public Role getRoleFromJwtToken(String token) {
+        Object role = Jwts.parserBuilder().setSigningKey(getSigningKey()).build()
+                .parseClaimsJws(token).getBody().get("role");
+        return role == null ? null : Role.valueOf(role.toString());
     }
 
     // 4. Validate token signature and expiration.

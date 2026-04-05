@@ -13,5 +13,7 @@ public interface StreakRepository extends JpaRepository<Streak, UUID> {
 
     Optional<Streak> findByProfileId(UUID profileId);
 
+    Optional<Streak> findTopByProfileIdAndStreakTypeIgnoreCase(UUID profileId, String streakType);
+
     Optional<Streak> findByIdAndProfileId(UUID id, UUID profileId);
 }

@@ -14,5 +14,7 @@ public interface FoodLogRepository extends JpaRepository<FoodLog, UUID> {
 
     List<FoodLog> findByProfileIdOrderByCreatedAtDesc(UUID profileId);
 
+    Optional<FoodLog> findTopByProfileIdOrderByCreatedAtDesc(UUID profileId);
+
     Optional<FoodLog> findByIdAndProfileId(UUID id, UUID profileId);
 }

@@ -1,6 +1,7 @@
 package com.mhsa.backend.ai.repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,4 +19,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
 
     @Query("SELECT m FROM ChatMessage m WHERE m.session = :session ORDER BY m.sentAt DESC")
     List<ChatMessage> findTop10BySessionOrderBySentAtDesc(@Param("session") ChatSession session);
+
+    Optional<ChatMessage> findTopBySessionOrderBySentAtDesc(ChatSession session);
+
+    Optional<ChatMessage> findTopBySessionAndSenderOrderBySentAtDesc(ChatSession session, String sender);
 }

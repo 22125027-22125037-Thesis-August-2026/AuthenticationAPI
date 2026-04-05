@@ -14,5 +14,7 @@ public interface DiaryEntryRepository extends JpaRepository<DiaryEntry, UUID> {
 
     List<DiaryEntry> findByProfileIdOrderByCreatedAtDesc(UUID profileId);
 
+    Optional<DiaryEntry> findTopByProfileIdOrderByCreatedAtDesc(UUID profileId);
+
     Optional<DiaryEntry> findByIdAndProfileId(UUID id, UUID profileId);
 }
