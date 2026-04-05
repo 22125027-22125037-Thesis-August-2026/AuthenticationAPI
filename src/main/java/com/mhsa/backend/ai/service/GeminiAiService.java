@@ -18,6 +18,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mhsa.backend.ai.dto.AiChatRequest;
 import com.mhsa.backend.ai.dto.AiChatResponse;
+import com.mhsa.backend.ai.entity.ChatMessage;
+import com.mhsa.backend.ai.entity.ChatSession;
+import com.mhsa.backend.ai.repository.ChatMessageRepository;
+import com.mhsa.backend.ai.repository.ChatSessionRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +33,9 @@ public class GeminiAiService {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final ChatSessionRepository chatSessionRepository;
+    private final ChatMessageRepository chatMessageRepository;
+    private final ContextAggregatorService contextAggregatorService;
 
     @Value("${gemini.api.key}")
     private String geminiApiKey;
@@ -36,8 +43,7 @@ public class GeminiAiService {
     @Value("${gemini.api.url}")
     private String geminiApiUrl;
 
-    private static final String SYSTEM_PROMPT = "Ngươi là 'Bạn Tâm Giao', một trợ lý tâm lý học thấu cảm dành cho sinh viên Việt Nam. "
-            + "Luôn xưng là 'mình' và gọi người dùng là 'bạn'. Câu trả lời phải ngắn gọn, ấm áp, thấu hiểu và mang tính xoa dịu.";
+    private static final String BASE_SYSTEM_PROMPT = "Ngươi là 'Bạn Tâm Giao', một trợ lý tâm lý học thấu cảm. Luôn xưng là 'mình' và gọi người dùng là 'bạn'. Hãy tham khảo [USER CONTEXT] dưới đây để đưa ra lời khuyên cá nhân hóa, nhưng KHÔNG ĐƯỢC nhắc lại dữ liệu một cách máy móc. Hãy an ủi tự nhiên.";
 
     /**
      * Send a message to Gemini AI and get a response
@@ -45,17 +51,55 @@ public class GeminiAiService {
      * @param request The user's chat request
      * @return The AI response
      */
-    public AiChatResponse sendMessage(AiChatRequest request) {
+    public AiChatResponse sendMessage(AiChatRequest request, UUID profileId) {
         try {
             log.info("Sending message to Gemini API. SessionId: {}", request.getSessionId());
 
-            // Generate sessionId if not provided
-            String sessionId = request.getSessionId() != null && !request.getSessionId().isBlank()
-                    ? request.getSessionId()
-                    : UUID.randomUUID().toString();
+            // 1. Find or create ChatSession
+            ChatSession session;
+            if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
+                session = chatSessionRepository.findById(UUID.fromString(request.getSessionId()))
+                        .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+            } else {
+                session = ChatSession.builder()
+                        .profileId(profileId)
+                        .createdAt(java.time.LocalDateTime.now())
+                        .build();
+                session = chatSessionRepository.save(session);
+            }
 
-            // Build the request payload for Gemini API
-            Map<String, Object> requestPayload = buildGeminiRequest(request.getContent());
+            // 2. Save user's message
+            ChatMessage userMessage = ChatMessage.builder()
+                    .session(session)
+                    .sender("USER")
+                    .content(request.getContent())
+                    .sentAt(java.time.LocalDateTime.now())
+                    .build();
+            chatMessageRepository.save(userMessage);
+
+            // 3. Get last 10 messages for context
+            List<ChatMessage> lastMessages = chatMessageRepository.findTop10BySessionOrderBySentAtDesc(session);
+            java.util.Collections.reverse(lastMessages); // oldest first
+            StringBuilder chatHistoryBuilder = new StringBuilder();
+            for (ChatMessage msg : lastMessages) {
+                chatHistoryBuilder.append(msg.getSender()).append(": ").append(msg.getContent()).append("\n");
+            }
+            String chatHistory = chatHistoryBuilder.toString();
+
+            // 4. Get user context summary
+            String userContext = contextAggregatorService.getUserContextSummary(profileId);
+
+            // 5. Compose the mega system prompt
+            String systemPrompt = BASE_SYSTEM_PROMPT + "\n" + userContext;
+
+            // 6. Build prompt: systemPrompt + chat history + user message
+            StringBuilder megaPrompt = new StringBuilder();
+            megaPrompt.append(systemPrompt).append("\n");
+            megaPrompt.append(chatHistory);
+            megaPrompt.append("USER: ").append(request.getContent());
+
+            // 7. Build Gemini request
+            Map<String, Object> requestPayload = buildGeminiRequest(megaPrompt.toString(), systemPrompt);
 
             // Prepare headers
             HttpHeaders headers = new HttpHeaders();
@@ -76,9 +120,18 @@ public class GeminiAiService {
                 String aiResponse = parseGeminiResponse(response.getBody());
                 log.info("Successfully received response from Gemini API");
 
+                // 8. Save AI response
+                ChatMessage aiMessage = ChatMessage.builder()
+                        .session(session)
+                        .sender("AI")
+                        .content(aiResponse)
+                        .sentAt(java.time.LocalDateTime.now())
+                        .build();
+                chatMessageRepository.save(aiMessage);
+
                 return AiChatResponse.builder()
-                        .sessionId(sessionId)
-                        .messageId(UUID.randomUUID().toString())
+                        .sessionId(session.getId().toString())
+                        .messageId(aiMessage.getId().toString())
                         .content(aiResponse)
                         .sentimentDetected("NEUTRAL") // Mock sentiment for now
                         .crisisDetected(false) // Mock crisis detection for now
@@ -103,29 +156,28 @@ public class GeminiAiService {
      * @param userMessage The user's message
      * @return The request payload as a Map
      */
-    private Map<String, Object> buildGeminiRequest(String userMessage) {
+    private Map<String, Object> buildGeminiRequest(String megaPrompt, String systemPrompt) {
         Map<String, Object> request = new HashMap<>();
 
         // Add system instruction
         Map<String, Object> systemInstruction = new HashMap<>();
         Map<String, String> parts = new HashMap<>();
-        parts.put("text", SYSTEM_PROMPT);
+        parts.put("text", systemPrompt);
         systemInstruction.put("parts", parts);
         request.put("system_instruction", systemInstruction);
 
-        // Add user message as contents
+        // Add mega prompt as user message
         List<Map<String, Object>> contents = List.of(
                 Map.of(
                         "role", "user",
                         "parts", List.of(
-                                Map.of("text", userMessage)
+                                Map.of("text", megaPrompt)
                         )
                 )
         );
         request.put("contents", contents);
 
         // Add safety settings for mental health context
-        // BLOCK_ONLY_HIGH ensures the AI doesn't refuse to engage with users expressing mental health concerns
         List<Map<String, String>> safetySettings = List.of(
                 Map.of("category", "HARM_CATEGORY_HATE_SPEECH", "threshold", "BLOCK_ONLY_HIGH"),
                 Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_ONLY_HIGH"),
@@ -137,7 +189,6 @@ public class GeminiAiService {
         // Add generation config
         Map<String, Object> generationConfig = new HashMap<>();
         generationConfig.put("temperature", 0.7);
-        generationConfig.put("max_output_tokens", 1024);
         request.put("generation_config", generationConfig);
 
         return request;
