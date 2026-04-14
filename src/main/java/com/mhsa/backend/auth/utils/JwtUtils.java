@@ -40,7 +40,7 @@ public class JwtUtils {
         HS256
     }
 
-    @Value("${mhsa.app.jwtSecret}")
+    @Value("${mhsa.app.jwtSecret:}")
     private String jwtSecret;
 
     @Value("${mhsa.app.jwtPrivateKey:}")
