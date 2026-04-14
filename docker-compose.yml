@@ -22,6 +22,7 @@ services:
   pgadmin:
     image: dpage/pgadmin4
     container_name: mhsa_pgadmin
+    restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@mhsa.com
       PGADMIN_DEFAULT_PASSWORD: admin

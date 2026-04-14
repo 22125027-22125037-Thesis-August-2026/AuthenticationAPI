@@ -45,11 +45,9 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest request) {
-        // 1. Lấy token từ header
-        String headerAuth = request.getHeader("Authorization");
+        String token = jwtUtils.resolveBearerToken(request.getHeader("Authorization"));
 
-        if (headerAuth != null && headerAuth.startsWith("Bearer ")) {
-            String token = headerAuth.substring(7);
+        if (token != null) {
 
             // 2. Tính thời gian hết hạn (để set TTL cho Redis)
             long expiration = jwtUtils.getExpirationDateFromToken(token).getTime();

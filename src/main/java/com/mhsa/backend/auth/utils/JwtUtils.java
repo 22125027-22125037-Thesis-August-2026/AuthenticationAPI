@@ -8,6 +8,8 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +36,8 @@ public class JwtUtils {
 
     private static final Logger log = LoggerFactory.getLogger(JwtUtils.class);
     private static final Set<String> SUPPORTED_ALGORITHMS = Set.of("RS256", "HS256");
+    private static final Pattern JWT_PATTERN
+            = Pattern.compile("([A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+)");
 
     private enum SigningMode {
         RS256,
@@ -61,7 +65,7 @@ public class JwtUtils {
     @Value("${mhsa.app.jwtSigningKid:mhsa-key-1}")
     private String jwtSigningKid;
 
-    @Value("${mhsa.app.jwtAllowHs256Fallback:true}")
+    @Value("${mhsa.app.jwtAllowHs256Fallback:false}")
     private boolean jwtAllowHs256Fallback;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -148,15 +152,44 @@ public class JwtUtils {
             parseClaims(authToken);
             return true;
         } catch (JwtException e) {
-            log.warn("Invalid JWT token: {}", e.getMessage());
+            log.warn("Invalid JWT token: {} (preview={})", e.getMessage(), previewToken(authToken));
         } catch (Exception e) {
-            log.warn("Unexpected JWT validation error: {}", e.getMessage());
+            log.warn("Unexpected JWT validation error: {} (preview={})", e.getMessage(), previewToken(authToken));
         }
         return false;
     }
 
     public Date getExpirationDateFromToken(String token) {
         return parseClaims(token).getExpiration();
+    }
+
+    public String resolveBearerToken(String authorizationHeader) {
+        if (!hasText(authorizationHeader)) {
+            return null;
+        }
+
+        String headerValue = authorizationHeader.trim();
+        if (!headerValue.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return null;
+        }
+
+        String token = headerValue.substring(7).trim();
+        token = stripWrappingQuotes(token);
+
+        Matcher matcher = JWT_PATTERN.matcher(token);
+        if (matcher.find()) {
+            String extracted = matcher.group(1);
+            if (!extracted.equals(token)) {
+                log.warn("Authorization header token was normalized before validation");
+            }
+            return extracted;
+        }
+
+        if (hasText(token)) {
+            log.warn("Authorization Bearer token format is invalid (raw={})", previewToken(token));
+        }
+
+        return null;
     }
 
     private Claims parseClaims(String token) {
@@ -289,5 +322,30 @@ public class JwtUtils {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private String stripWrappingQuotes(String value) {
+        if (!hasText(value)) {
+            return value;
+        }
+
+        String normalized = value.trim();
+        while (normalized.length() >= 2
+                && normalized.startsWith("\"")
+                && normalized.endsWith("\"")) {
+            normalized = normalized.substring(1, normalized.length() - 1).trim();
+        }
+
+        return normalized;
+    }
+
+    private String previewToken(String value) {
+        if (!hasText(value)) {
+            return "<empty>";
+        }
+
+        String sanitized = value.replaceAll("\\s+", " ").trim();
+        int prefixLength = Math.min(16, sanitized.length());
+        return sanitized.substring(0, prefixLength) + "...";
     }
 }
