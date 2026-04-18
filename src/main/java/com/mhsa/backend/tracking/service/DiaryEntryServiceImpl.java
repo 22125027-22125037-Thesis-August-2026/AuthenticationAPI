@@ -48,7 +48,7 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
         // 1) Save diary metadata/content first.
         DiaryEntry entityToSave = diaryEntryMapper.toEntity(request);
         entityToSave.setProfileId(profileId);
-        entityToSave.setEntryDate(LocalDate.now());
+        entityToSave.setEntryDate(resolveEntryDate(request));
         entityToSave.setContent(encrypt(request.getContent()));
 
         DiaryEntry savedEntity = diaryEntryRepository.save(entityToSave);
@@ -148,6 +148,7 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
             }
             existing.setMoodTag(request.getMoodTag());
             existing.setPositivityScore(request.getPositivityScore());
+            existing.setEntryDate(resolveEntryDate(request));
         }
 
         if (files != null) {
@@ -198,6 +199,13 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
     private DiaryEntry findOwnedDiaryEntry(UUID profileId, UUID id) {
         return diaryEntryRepository.findByIdAndProfileId(id, profileId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary entry not found"));
+    }
+
+    private LocalDate resolveEntryDate(DiaryEntryRequest request) {
+        if (request == null || request.getEntryDate() == null) {
+            return LocalDate.now();
+        }
+        return request.getEntryDate();
     }
 
     private String encrypt(String plainText) {
