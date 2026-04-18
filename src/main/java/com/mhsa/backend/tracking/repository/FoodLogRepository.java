@@ -1,5 +1,6 @@
 package com.mhsa.backend.tracking.repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,4 +18,6 @@ public interface FoodLogRepository extends JpaRepository<FoodLog, UUID> {
     Optional<FoodLog> findTopByProfileIdOrderByCreatedAtDesc(UUID profileId);
 
     Optional<FoodLog> findByIdAndProfileId(UUID id, UUID profileId);
+
+    Optional<FoodLog> findByProfileIdAndEntryDate(UUID profileId, LocalDate entryDate);
 }

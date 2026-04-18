@@ -1,6 +1,7 @@
 package com.mhsa.backend.tracking.service;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,12 +34,11 @@ public class SleepLogServiceImpl implements SleepLogService {
             throw new IllegalArgumentException("profileId is required");
         }
 
-        SleepLog entityToSave = sleepLogMapper.toEntity(request);
-        entityToSave.setProfileId(profileId);
-        if (entityToSave.getSleepStartAt() != null && entityToSave.getSleepEndAt() != null) {
-            long minutes = Duration.between(entityToSave.getSleepStartAt(), entityToSave.getSleepEndAt()).toMinutes();
-            entityToSave.setDurationMinutes((int) Math.max(minutes, 0));
-        }
+        LocalDate entryDate = resolveEntryDate(request);
+        SleepLog entityToSave = sleepLogRepository.findByProfileIdAndEntryDate(profileId, entryDate)
+                .orElseGet(() -> sleepLogMapper.toEntity(request));
+
+        applyRequestToEntity(entityToSave, request, profileId, entryDate);
 
         SleepLog savedEntity = sleepLogRepository.save(entityToSave);
         streakService.updateStreak(profileId);
@@ -75,20 +75,42 @@ public class SleepLogServiceImpl implements SleepLogService {
         }
 
         SleepLog existing = findOwnedSleepLog(profileId, id);
-        existing.setSleepStartAt(request.getBedTime());
-        existing.setSleepEndAt(request.getWakeTime());
-        existing.setSleepQuality(request.getSleepQuality());
-        existing.setNote(request.getNote());
+        LocalDate entryDate = resolveEntryDate(request);
 
-        if (existing.getSleepStartAt() != null && existing.getSleepEndAt() != null) {
-            long minutes = Duration.between(existing.getSleepStartAt(), existing.getSleepEndAt()).toMinutes();
-            existing.setDurationMinutes((int) Math.max(minutes, 0));
-        } else {
-            existing.setDurationMinutes(null);
-        }
+        sleepLogRepository.findByProfileIdAndEntryDate(profileId, entryDate)
+                .filter(other -> !other.getId().equals(existing.getId()))
+                .ifPresent(other -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Sleep log already exists for the selected date");
+                });
+
+        applyRequestToEntity(existing, request, profileId, entryDate);
 
         SleepLog savedEntity = sleepLogRepository.save(existing);
         return sleepLogMapper.toResponseDTO(savedEntity);
+    }
+
+    private void applyRequestToEntity(SleepLog target, SleepLogRequest request, UUID profileId, LocalDate entryDate) {
+        target.setProfileId(profileId);
+        target.setEntryDate(entryDate);
+        target.setSleepStartAt(request.getBedTime());
+        target.setSleepEndAt(request.getWakeTime());
+        target.setSleepQuality(request.getSleepQuality());
+        target.setNote(request.getNote());
+
+        if (target.getSleepStartAt() != null && target.getSleepEndAt() != null) {
+            long minutes = Duration.between(target.getSleepStartAt(), target.getSleepEndAt()).toMinutes();
+            target.setDurationMinutes((int) Math.max(minutes, 0));
+        } else {
+            target.setDurationMinutes(null);
+        }
+    }
+
+    private LocalDate resolveEntryDate(SleepLogRequest request) {
+        if (request == null || request.getEntryDate() == null) {
+            return LocalDate.now();
+        }
+        return request.getEntryDate();
     }
 
     @Override

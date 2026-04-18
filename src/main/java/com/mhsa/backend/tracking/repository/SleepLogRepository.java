@@ -1,5 +1,6 @@
 package com.mhsa.backend.tracking.repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,4 +18,6 @@ public interface SleepLogRepository extends JpaRepository<SleepLog, UUID> {
     Optional<SleepLog> findTopByProfileIdOrderByCreatedAtDesc(UUID profileId);
 
     Optional<SleepLog> findByIdAndProfileId(UUID id, UUID profileId);
+
+    Optional<SleepLog> findByProfileIdAndEntryDate(UUID profileId, LocalDate entryDate);
 }

@@ -19,6 +19,7 @@ public class SleepLogMapper {
         entity.setSleepEndAt(dto.getWakeTime());
         entity.setSleepQuality(dto.getSleepQuality());
         entity.setNote(dto.getNote());
+        entity.setEntryDate(dto.getEntryDate());
 
         return entity;
     }
@@ -35,6 +36,7 @@ public class SleepLogMapper {
                 .durationMinutes(entity.getDurationMinutes())
                 .sleepQuality(entity.getSleepQuality())
                 .note(entity.getNote())
+                .entryDate(entity.getEntryDate())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

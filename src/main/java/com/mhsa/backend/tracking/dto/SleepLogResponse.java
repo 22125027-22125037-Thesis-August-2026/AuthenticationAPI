@@ -1,5 +1,6 @@
 package com.mhsa.backend.tracking.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -32,6 +33,9 @@ public class SleepLogResponse {
 
     @Schema(description = "Optional sleep note", example = "Slept well with one brief wake-up.")
     private String note;
+
+    @Schema(description = "Sleep log date in ISO-8601", example = "2026-04-10")
+    private LocalDate entryDate;
 
     @Schema(description = "Creation timestamp in ISO-8601", example = "2026-03-01T06:31:10")
     private LocalDateTime createdAt;

@@ -18,6 +18,7 @@ public class FoodLogMapper {
         entity.setMealType(dto.getMealType());
         entity.setFoodDescription(dto.getFoodDescription());
         entity.setSatietyLevel(dto.getSatietyLevel());
+        entity.setEntryDate(dto.getEntryDate());
         return entity;
     }
 
@@ -31,6 +32,7 @@ public class FoodLogMapper {
                 .mealType(entity.getMealType())
                 .foodDescription(entity.getFoodDescription())
                 .satietyLevel(entity.getSatietyLevel())
+                .entryDate(entity.getEntryDate())
                 .createdAt(entity.getCreatedAt())
                 .build();
     }
