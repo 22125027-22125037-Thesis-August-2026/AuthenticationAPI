@@ -24,7 +24,7 @@ public class DiaryEntryRequest {
     @Schema(description = "Plain-text diary content entered by user", example = "Today was a productive day, I felt really focused.")
     private String content;
 
-    @Schema(description = "Mood tag for this diary entry", example = "MOTIVATED")
+    @Schema(description = "Mood tag for this diary entry", example = "GOOD")
     private String moodTag;
 
     @Min(1)
