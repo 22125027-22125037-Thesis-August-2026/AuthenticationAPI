@@ -1,5 +1,6 @@
 package com.mhsa.backend.tracking.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +31,9 @@ public class DiaryEntryResponse {
 
     @Schema(description = "Daily positivity score from 1 to 10", example = "8")
     private Integer positivityScore;
+
+    @Schema(description = "Diary entry date in ISO-8601", example = "2026-04-10")
+    private LocalDate entryDate;
 
     @Schema(description = "Attached media list")
     private List<MediaAttachmentResponse> attachments;

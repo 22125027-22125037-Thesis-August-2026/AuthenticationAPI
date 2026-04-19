@@ -1,5 +1,7 @@
 package com.mhsa.backend.tracking.dto;
 
+import java.time.LocalDate;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -22,11 +24,14 @@ public class DiaryEntryRequest {
     @Schema(description = "Plain-text diary content entered by user", example = "Today was a productive day, I felt really focused.")
     private String content;
 
-    @Schema(description = "Mood tag for this diary entry", example = "MOTIVATED")
+    @Schema(description = "Mood tag for this diary entry", example = "GOOD")
     private String moodTag;
 
     @Min(1)
     @Max(10)
     @Schema(description = "Daily positivity score from 1 to 10", example = "8")
     private Integer positivityScore;
+
+    @Schema(description = "Diary entry date in ISO-8601", example = "2026-04-10")
+    private LocalDate entryDate;
 }

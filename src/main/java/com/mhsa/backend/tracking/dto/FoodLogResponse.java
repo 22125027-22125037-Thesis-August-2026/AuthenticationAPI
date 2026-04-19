@@ -1,5 +1,6 @@
 package com.mhsa.backend.tracking.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -26,6 +27,9 @@ public class FoodLogResponse {
 
     @Schema(description = "Satiety level after meal", example = "COMFORTABLY_FULL")
     private String satietyLevel;
+
+    @Schema(description = "Food log date in ISO-8601", example = "2026-04-10")
+    private LocalDate entryDate;
 
     @Schema(description = "Creation timestamp in ISO-8601", example = "2026-03-04T12:30:00")
     private LocalDateTime createdAt;

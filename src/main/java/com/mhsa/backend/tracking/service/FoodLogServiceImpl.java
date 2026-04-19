@@ -1,5 +1,6 @@
 package com.mhsa.backend.tracking.service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,8 +32,12 @@ public class FoodLogServiceImpl implements FoodLogService {
             throw new IllegalArgumentException("profileId is required");
         }
 
-        FoodLog entityToSave = foodLogMapper.toEntity(request);
-        entityToSave.setProfileId(profileId);
+        LocalDate entryDate = resolveEntryDate(request);
+        FoodLog entityToSave = foodLogRepository.findByProfileIdAndEntryDate(profileId, entryDate)
+                .orElseGet(() -> foodLogMapper.toEntity(request));
+
+        applyRequestToEntity(entityToSave, request, profileId, entryDate);
+
         FoodLog savedEntity = foodLogRepository.save(entityToSave);
         return foodLogMapper.toResponseDTO(savedEntity);
     }
@@ -66,9 +71,16 @@ public class FoodLogServiceImpl implements FoodLogService {
         }
 
         FoodLog existing = findOwnedFoodLog(profileId, id);
-        existing.setMealType(request.getMealType());
-        existing.setFoodDescription(request.getFoodDescription());
-        existing.setSatietyLevel(request.getSatietyLevel());
+        LocalDate entryDate = resolveEntryDate(request);
+
+        foodLogRepository.findByProfileIdAndEntryDate(profileId, entryDate)
+                .filter(other -> !other.getId().equals(existing.getId()))
+                .ifPresent(other -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Food log already exists for the selected date");
+                });
+
+        applyRequestToEntity(existing, request, profileId, entryDate);
 
         FoodLog savedEntity = foodLogRepository.save(existing);
         return foodLogMapper.toResponseDTO(savedEntity);
@@ -88,5 +100,20 @@ public class FoodLogServiceImpl implements FoodLogService {
     private FoodLog findOwnedFoodLog(UUID profileId, UUID id) {
         return foodLogRepository.findByIdAndProfileId(id, profileId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Food log not found"));
+    }
+
+    private void applyRequestToEntity(FoodLog target, FoodLogRequest request, UUID profileId, LocalDate entryDate) {
+        target.setProfileId(profileId);
+        target.setEntryDate(entryDate);
+        target.setMealType(request.getMealType());
+        target.setFoodDescription(request.getFoodDescription());
+        target.setSatietyLevel(request.getSatietyLevel());
+    }
+
+    private LocalDate resolveEntryDate(FoodLogRequest request) {
+        if (request == null || request.getEntryDate() == null) {
+            return LocalDate.now();
+        }
+        return request.getEntryDate();
     }
 }
