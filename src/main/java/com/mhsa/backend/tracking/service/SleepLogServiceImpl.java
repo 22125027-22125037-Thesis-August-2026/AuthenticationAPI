@@ -2,6 +2,7 @@ package com.mhsa.backend.tracking.service;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -99,7 +100,16 @@ public class SleepLogServiceImpl implements SleepLogService {
         target.setNote(request.getNote());
 
         if (target.getSleepStartAt() != null && target.getSleepEndAt() != null) {
-            long minutes = Duration.between(target.getSleepStartAt(), target.getSleepEndAt()).toMinutes();
+            LocalDateTime sleepStartAt = target.getSleepStartAt();
+            LocalDateTime sleepEndAt = target.getSleepEndAt();
+            LocalDateTime normalizedSleepEndAt = sleepEndAt;
+
+            if (sleepEndAt.isBefore(sleepStartAt)) {
+                normalizedSleepEndAt = sleepEndAt.plusDays(1);
+            }
+
+            long minutes = Duration.between(sleepStartAt, normalizedSleepEndAt).toMinutes();
+
             target.setDurationMinutes((int) Math.max(minutes, 0));
         } else {
             target.setDurationMinutes(null);
