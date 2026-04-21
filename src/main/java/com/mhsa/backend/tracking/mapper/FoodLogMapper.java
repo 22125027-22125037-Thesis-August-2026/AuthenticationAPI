@@ -1,5 +1,7 @@
 package com.mhsa.backend.tracking.mapper;
 
+import java.util.Objects;
+
 import org.springframework.stereotype.Component;
 
 import com.mhsa.backend.tracking.dto.FoodLogRequest;
@@ -15,7 +17,7 @@ public class FoodLogMapper {
         }
 
         FoodLog entity = new FoodLog();
-        entity.setMealType(dto.getMealType());
+        entity.setWaterGlasses(Objects.requireNonNullElse(dto.getWaterGlasses(), 0));
         entity.setFoodDescription(dto.getFoodDescription());
         entity.setSatietyLevel(dto.getSatietyLevel());
         entity.setEntryDate(dto.getEntryDate());
@@ -29,11 +31,12 @@ public class FoodLogMapper {
 
         return FoodLogResponse.builder()
                 .id(entity.getId())
-                .mealType(entity.getMealType())
+                .waterGlasses(entity.getWaterGlasses())
                 .foodDescription(entity.getFoodDescription())
                 .satietyLevel(entity.getSatietyLevel())
                 .entryDate(entity.getEntryDate())
                 .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
                 .build();
     }
 }

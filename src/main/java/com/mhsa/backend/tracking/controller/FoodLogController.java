@@ -1,8 +1,10 @@
 package com.mhsa.backend.tracking.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mhsa.backend.common.util.SecurityUtils;
@@ -33,17 +36,19 @@ public class FoodLogController {
     private final FoodLogService foodLogService;
 
     @PostMapping("/")
-    @Operation(summary = "Create a new food log")
+    @Operation(summary = "Create or update today's food entry")
     public ResponseEntity<FoodLogResponse> create(@Valid @RequestBody FoodLogRequest request) {
         UUID profileId = SecurityUtils.getCurrentProfileId();
         return ResponseEntity.status(HttpStatus.CREATED).body(foodLogService.create(profileId, request));
     }
 
     @GetMapping("/")
-    @Operation(summary = "Get all food logs")
-    public ResponseEntity<List<FoodLogResponse>> getAll() {
+    @Operation(summary = "Get food entries for a profile or date range")
+    public ResponseEntity<List<FoodLogResponse>> getFoodEntries(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         UUID profileId = SecurityUtils.getCurrentProfileId();
-        return ResponseEntity.ok(foodLogService.getAllByProfile(profileId));
+        return ResponseEntity.ok(foodLogService.getFoodEntries(profileId, startDate, endDate));
     }
 
     @GetMapping("/{id}")
@@ -54,7 +59,7 @@ public class FoodLogController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update a food log by ID")
+    @Operation(summary = "Update a food entry by ID")
     public ResponseEntity<FoodLogResponse> update(@PathVariable UUID id, @Valid @RequestBody FoodLogRequest request) {
         UUID profileId = SecurityUtils.getCurrentProfileId();
         return ResponseEntity.ok(foodLogService.update(profileId, id, request));

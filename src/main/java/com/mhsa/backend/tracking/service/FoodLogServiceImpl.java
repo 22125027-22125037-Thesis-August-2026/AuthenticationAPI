@@ -2,6 +2,7 @@ package com.mhsa.backend.tracking.service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -34,7 +35,7 @@ public class FoodLogServiceImpl implements FoodLogService {
 
         LocalDate entryDate = resolveEntryDate(request);
         FoodLog entityToSave = foodLogRepository.findByProfileIdAndEntryDate(profileId, entryDate)
-                .orElseGet(() -> foodLogMapper.toEntity(request));
+                .orElseGet(FoodLog::new);
 
         applyRequestToEntity(entityToSave, request, profileId, entryDate);
 
@@ -44,12 +45,32 @@ public class FoodLogServiceImpl implements FoodLogService {
 
     @Override
     public List<FoodLogResponse> getAllByProfile(UUID profileId) {
+        return getFoodEntries(profileId, null, null);
+    }
+
+    @Override
+    public List<FoodLogResponse> getFoodEntries(UUID profileId, LocalDate startDate, LocalDate endDate) {
         if (profileId == null) {
             throw new IllegalArgumentException("profileId is required");
         }
 
-        return foodLogRepository.findByProfileIdOrderByCreatedAtDesc(profileId)
-                .stream()
+        LocalDate normalizedStartDate = startDate == null ? null : startDate;
+        LocalDate normalizedEndDate = endDate == null ? null : endDate;
+
+        if (normalizedStartDate != null && normalizedEndDate != null && normalizedStartDate.isAfter(normalizedEndDate)) {
+            throw new IllegalArgumentException("startDate must be before or equal to endDate");
+        }
+
+        List<FoodLog> foodLogs;
+        if (normalizedStartDate != null || normalizedEndDate != null) {
+            LocalDate effectiveStartDate = normalizedStartDate == null ? LocalDate.MIN : normalizedStartDate;
+            LocalDate effectiveEndDate = normalizedEndDate == null ? LocalDate.MAX : normalizedEndDate;
+            foodLogs = foodLogRepository.findByProfileIdAndEntryDateBetweenOrderByEntryDateAsc(profileId, effectiveStartDate, effectiveEndDate);
+        } else {
+            foodLogs = foodLogRepository.findByProfileIdOrderByEntryDateDesc(profileId);
+        }
+
+        return foodLogs.stream()
                 .map(foodLogMapper::toResponseDTO)
                 .toList();
     }
@@ -77,7 +98,7 @@ public class FoodLogServiceImpl implements FoodLogService {
                 .filter(other -> !other.getId().equals(existing.getId()))
                 .ifPresent(other -> {
                     throw new ResponseStatusException(HttpStatus.CONFLICT,
-                            "Food log already exists for the selected date");
+                            "Food entry already exists for the selected date");
                 });
 
         applyRequestToEntity(existing, request, profileId, entryDate);
@@ -105,7 +126,7 @@ public class FoodLogServiceImpl implements FoodLogService {
     private void applyRequestToEntity(FoodLog target, FoodLogRequest request, UUID profileId, LocalDate entryDate) {
         target.setProfileId(profileId);
         target.setEntryDate(entryDate);
-        target.setMealType(request.getMealType());
+        target.setWaterGlasses(Objects.requireNonNullElse(request.getWaterGlasses(), 0));
         target.setFoodDescription(request.getFoodDescription());
         target.setSatietyLevel(request.getSatietyLevel());
     }

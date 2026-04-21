@@ -2,7 +2,7 @@
 
 INSERT INTO users (
     user_id, email, password, role, full_name, dob, phone_number,
-    credits_balance, created_at, updated_at, pin_code, parent_id
+    credits_balance, created_at, updated_at
 )
 SELECT
     (
@@ -25,9 +25,7 @@ SELECT
     '+8412345' || lpad(n::text, 4, '0'),
     (n * 50),
     now() - (n || ' days')::interval,
-    now() - (n || ' days')::interval,
-    lpad((1000 + n)::text, 4, '0'),
-    NULL
+    now() - (n || ' days')::interval
 FROM generate_series(1, 20) AS g(n)
 ON CONFLICT (user_id) DO NOTHING;
 
@@ -157,7 +155,7 @@ FROM generate_series(1, 20) AS g(n)
 ON CONFLICT (diary_entry_id) DO NOTHING;
 
 INSERT INTO food_logs (
-    food_id, profile_id, meal_type, food_description, satiety_level, created_at
+    food_id, profile_id, water_glasses, food_description, satiety_level, entry_date, created_at
 )
 SELECT
     (
@@ -174,18 +172,14 @@ SELECT
         substr(md5('profile-' || n::text), 17, 4) || '-' ||
         substr(md5('profile-' || n::text), 21, 12)
     )::uuid,
-    CASE (n % 4)
-        WHEN 1 THEN 'Breakfast'
-        WHEN 2 THEN 'Lunch'
-        WHEN 3 THEN 'Dinner'
-        ELSE 'Snack'
-    END,
+    (n % 9),
     'Mock meal description #' || n::text,
     CASE (n % 3)
         WHEN 1 THEN 'Satisfied'
         WHEN 2 THEN 'Neutral'
         ELSE 'Very Full'
     END,
+    (current_date - n),
     now() - (n || ' days')::interval
 FROM generate_series(1, 20) AS g(n)
 ON CONFLICT (food_id) DO NOTHING;
@@ -270,7 +264,7 @@ ON CONFLICT (mood_log_id) DO NOTHING;
 
 INSERT INTO sleep_logs (
     sleep_log_id, profile_id, sleep_start_at, sleep_end_at,
-    duration_minutes, sleep_quality, note, logged_at, created_at, updated_at
+    duration_minutes, sleep_quality, note, entry_date, logged_at, created_at, updated_at
 )
 SELECT
     (
@@ -292,6 +286,7 @@ SELECT
     (420 + (n % 120)),
     (1 + (n % 5)),
     'Sleep note #' || n::text,
+    (current_date - n),
     now() - (n || ' hours')::interval,
     now() - (n || ' days')::interval,
     now() - (n || ' days')::interval

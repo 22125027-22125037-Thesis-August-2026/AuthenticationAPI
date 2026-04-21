@@ -3,6 +3,7 @@ package com.mhsa.backend.tracking.dto;
 import java.time.LocalDate;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,9 +16,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class FoodLogRequest {
 
-    @NotBlank
-    @Schema(description = "Meal type", example = "LUNCH")
-    private String mealType;
+    @Min(0)
+    @Schema(description = "Water glasses logged for the day", example = "6")
+    private Integer waterGlasses;
 
     @NotBlank
     @Schema(description = "Food description", example = "Grilled chicken, brown rice, and mixed vegetables")

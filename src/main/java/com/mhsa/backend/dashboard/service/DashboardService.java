@@ -48,7 +48,7 @@ public class DashboardService {
         MoodLog latestMoodLog = moodLogRepository.findTopByProfileIdOrderByLoggedAtDesc(profileId).orElse(null);
         SleepLog latestSleepLog = sleepLogRepository.findTopByProfileIdOrderByCreatedAtDesc(profileId).orElse(null);
         DiaryEntry latestDiaryEntry = diaryEntryRepository.findTopByProfileIdOrderByCreatedAtDesc(profileId).orElse(null);
-        FoodLog latestFoodLog = foodLogRepository.findTopByProfileIdOrderByCreatedAtDesc(profileId).orElse(null);
+        FoodLog latestFoodLog = foodLogRepository.findTopByProfileIdOrderByEntryDateDesc(profileId).orElse(null);
         Streak diaryStreak = streakRepository.findTopByProfileIdAndStreakTypeIgnoreCase(profileId, "DIARY").orElse(null);
 
         Integer emotionScore = resolveEmotionScore(latestMoodLog, latestDiaryEntry);
@@ -133,15 +133,15 @@ public class DashboardService {
             return DEFAULT_FOOD_STATUS;
         }
 
-        String mealType = latestFoodLog.getMealType() == null ? "" : latestFoodLog.getMealType().toLowerCase(Locale.ROOT);
-        String description = latestFoodLog.getFoodDescription() == null ? "" : latestFoodLog.getFoodDescription().toLowerCase(Locale.ROOT);
+        String foodDescription = latestFoodLog.getFoodDescription() == null ? "" : latestFoodLog.getFoodDescription().toLowerCase(Locale.ROOT);
+        String satietyLevel = latestFoodLog.getSatietyLevel() == null ? "" : latestFoodLog.getSatietyLevel().toLowerCase(Locale.ROOT);
 
-        if (mealType.contains("healthy")
-                || mealType.contains("clean")
-                || description.contains("rau")
-                || description.contains("salad")
-                || description.contains("ức gà")
-                || description.contains("ca luoc")) {
+        if ((latestFoodLog.getWaterGlasses() != null && latestFoodLog.getWaterGlasses() >= 8)
+                || satietyLevel.contains("full")
+                || satietyLevel.contains("healthy")
+                || foodDescription.contains("rau")
+                || foodDescription.contains("salad")
+                || foodDescription.contains("healthy")) {
             return "Lành mạnh";
         }
 

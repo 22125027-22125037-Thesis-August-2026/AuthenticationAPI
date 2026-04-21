@@ -13,9 +13,11 @@ import com.mhsa.backend.tracking.entity.FoodLog;
 @Repository
 public interface FoodLogRepository extends JpaRepository<FoodLog, UUID> {
 
-    List<FoodLog> findByProfileIdOrderByCreatedAtDesc(UUID profileId);
+    List<FoodLog> findByProfileIdOrderByEntryDateDesc(UUID profileId);
 
-    Optional<FoodLog> findTopByProfileIdOrderByCreatedAtDesc(UUID profileId);
+    List<FoodLog> findByProfileIdAndEntryDateBetweenOrderByEntryDateAsc(UUID profileId, LocalDate startDate, LocalDate endDate);
+
+    Optional<FoodLog> findTopByProfileIdOrderByEntryDateDesc(UUID profileId);
 
     Optional<FoodLog> findByIdAndProfileId(UUID id, UUID profileId);
 

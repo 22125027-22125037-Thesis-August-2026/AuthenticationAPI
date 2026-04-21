@@ -54,13 +54,15 @@ public class ContextAggregatorService {
                 .collect(Collectors.toSet());
 
         // --- Food ---
-        List<FoodLog> foodLogs = foodLogRepository.findByProfileIdOrderByCreatedAtDesc(profileId)
+        List<FoodLog> foodLogs = foodLogRepository.findByProfileIdOrderByEntryDateDesc(profileId)
                 .stream()
-                .filter(log -> log.getCreatedAt() != null && log.getCreatedAt().toLocalDate().isAfter(sevenDaysAgo.minusDays(1)))
+                .filter(log -> log.getEntryDate() != null && log.getEntryDate().isAfter(sevenDaysAgo.minusDays(1)))
                 .collect(Collectors.toList());
+        long lowWaterDays = foodLogs.stream()
+                .filter(log -> log.getWaterGlasses() != null && log.getWaterGlasses() < 6)
+                .count();
         long skippedMeals = foodLogs.stream()
-                .filter(log -> log.getMealType() != null && log.getMealType().toLowerCase().contains("breakfast")
-                && log.getFoodDescription() != null && log.getFoodDescription().toLowerCase().contains("skipped"))
+                .filter(log -> log.getFoodDescription() != null && log.getFoodDescription().toLowerCase().contains("skipped"))
                 .count();
 
         StringBuilder sb = new StringBuilder();
@@ -73,12 +75,13 @@ public class ContextAggregatorService {
         sb.append("\n");
         sb.append("- Mood: Dominant emotion is ");
         if (!dominantEmotions.isEmpty()) {
-            sb.append(String.join(" and ", dominantEmotions)); 
-        }else {
+            sb.append(String.join(" and ", dominantEmotions));
+        } else {
             sb.append("N/A");
         }
         sb.append(".\n");
         sb.append("- Diet: Skipped breakfast ").append(skippedMeals).append(" times.\n");
+        sb.append("- Hydration: ").append(lowWaterDays).append(" days below 6 glasses.\n");
         return sb.toString();
     }
 }
