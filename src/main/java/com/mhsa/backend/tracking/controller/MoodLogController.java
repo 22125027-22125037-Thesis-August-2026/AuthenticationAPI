@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,17 +40,17 @@ public class MoodLogController {
         return ResponseEntity.status(HttpStatus.CREATED).body(moodLogService.create(profileId, request));
     }
 
-    @GetMapping("/")
+    @GetMapping("/{profileId}")
+    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
     @Operation(summary = "Get all mood logs")
-    public ResponseEntity<List<MoodLogResponse>> getAll() {
-        UUID profileId = SecurityUtils.getCurrentProfileId();
+    public ResponseEntity<List<MoodLogResponse>> getAll(@PathVariable UUID profileId) {
         return ResponseEntity.ok(moodLogService.getAllByProfileId(profileId));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{profileId}/{id}")
+    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
     @Operation(summary = "Get a mood log by ID")
-    public ResponseEntity<MoodLogResponse> getById(@PathVariable UUID id) {
-        UUID profileId = SecurityUtils.getCurrentProfileId();
+    public ResponseEntity<MoodLogResponse> getById(@PathVariable UUID profileId, @PathVariable UUID id) {
         return ResponseEntity.ok(moodLogService.getById(profileId, id));
     }
 

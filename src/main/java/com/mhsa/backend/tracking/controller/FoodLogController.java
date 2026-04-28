@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,19 +43,20 @@ public class FoodLogController {
         return ResponseEntity.status(HttpStatus.CREATED).body(foodLogService.create(profileId, request));
     }
 
-    @GetMapping("/")
+    @GetMapping("/{profileId}")
+    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
     @Operation(summary = "Get food entries for a profile or date range")
     public ResponseEntity<List<FoodLogResponse>> getFoodEntries(
+            @PathVariable UUID profileId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        UUID profileId = SecurityUtils.getCurrentProfileId();
         return ResponseEntity.ok(foodLogService.getFoodEntries(profileId, startDate, endDate));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{profileId}/{id}")
+    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
     @Operation(summary = "Get a food log by ID")
-    public ResponseEntity<FoodLogResponse> getById(@PathVariable UUID id) {
-        UUID profileId = SecurityUtils.getCurrentProfileId();
+    public ResponseEntity<FoodLogResponse> getById(@PathVariable UUID profileId, @PathVariable UUID id) {
         return ResponseEntity.ok(foodLogService.getById(profileId, id));
     }
 

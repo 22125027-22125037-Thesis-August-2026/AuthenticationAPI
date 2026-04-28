@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,17 +40,17 @@ public class SleepLogController {
         return ResponseEntity.status(HttpStatus.CREATED).body(sleepLogService.create(profileId, request));
     }
 
-    @GetMapping("/")
+    @GetMapping("/{profileId}")
+    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
     @Operation(summary = "Get all sleep logs")
-    public ResponseEntity<List<SleepLogResponse>> getAll() {
-        UUID profileId = SecurityUtils.getCurrentProfileId();
+    public ResponseEntity<List<SleepLogResponse>> getAll(@PathVariable UUID profileId) {
         return ResponseEntity.ok(sleepLogService.getAllByProfileId(profileId));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{profileId}/{id}")
+    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
     @Operation(summary = "Get a sleep log by ID")
-    public ResponseEntity<SleepLogResponse> getById(@PathVariable UUID id) {
-        UUID profileId = SecurityUtils.getCurrentProfileId();
+    public ResponseEntity<SleepLogResponse> getById(@PathVariable UUID profileId, @PathVariable UUID id) {
         return ResponseEntity.ok(sleepLogService.getById(profileId, id));
     }
 

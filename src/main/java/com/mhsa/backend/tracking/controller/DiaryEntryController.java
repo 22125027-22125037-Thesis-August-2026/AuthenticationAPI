@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -62,17 +63,17 @@ public class DiaryEntryController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @GetMapping("/")
+    @GetMapping("/{profileId}")
+    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
     @Operation(summary = "Get all diary entries")
-    public ResponseEntity<List<DiaryEntryResponse>> getAll() {
-        UUID profileId = SecurityUtils.getCurrentProfileId();
+    public ResponseEntity<List<DiaryEntryResponse>> getAll(@PathVariable UUID profileId) {
         return ResponseEntity.ok(diaryEntryService.getAllByProfileId(profileId));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{profileId}/{id}")
+    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
     @Operation(summary = "Get a diary entry by ID")
-    public ResponseEntity<DiaryEntryResponse> getById(@PathVariable UUID id) {
-        UUID profileId = SecurityUtils.getCurrentProfileId();
+    public ResponseEntity<DiaryEntryResponse> getById(@PathVariable UUID profileId, @PathVariable UUID id) {
         return ResponseEntity.ok(diaryEntryService.getById(profileId, id));
     }
 
