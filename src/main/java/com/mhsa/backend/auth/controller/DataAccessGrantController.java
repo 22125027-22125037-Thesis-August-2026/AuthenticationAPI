@@ -14,9 +14,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.mhsa.backend.auth.dto.DataAccessGrantResponse;
 import com.mhsa.backend.auth.dto.GrantAccessRequest;
+import com.mhsa.backend.auth.dto.GrantStatusResponse;
 import com.mhsa.backend.auth.service.DataAccessGrantService;
 import com.mhsa.backend.common.dto.ApiResponse;
 import com.mhsa.backend.common.util.SecurityUtils;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -52,12 +54,37 @@ public class DataAccessGrantController {
     }
 
     /**
-     * List all ACTIVE grants issued by the current profile.
+     * List all ACTIVE grants issued by the given profile.
+     * Only ADMIN or the profile owner may request this.
      */
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<DataAccessGrantResponse>>> listMyGrants() {
-        UUID granterProfileId = SecurityUtils.getCurrentProfileId();
-        List<DataAccessGrantResponse> grants = dataAccessGrantService.listActiveGrants(granterProfileId);
+    @GetMapping("/{profileId}")
+    @PreAuthorize("@accessGuard.canManageGrants(authentication, #profileId)")
+    public ResponseEntity<ApiResponse<List<DataAccessGrantResponse>>> listMyGrants(
+            @PathVariable UUID profileId) {
+        List<DataAccessGrantResponse> grants = dataAccessGrantService.listActiveGrants(profileId);
         return ResponseEntity.ok(ApiResponse.success(grants));
+    }
+
+    /**
+     * List all ACTIVE grants that other profiles have given to the given profile.
+     * Only ADMIN or the profile owner may request this.
+     */
+    @GetMapping("/{profileId}/received")
+    @PreAuthorize("@accessGuard.canManageGrants(authentication, #profileId)")
+    public ResponseEntity<ApiResponse<List<DataAccessGrantResponse>>> listReceivedGrants(
+            @PathVariable UUID profileId) {
+        List<DataAccessGrantResponse> grants = dataAccessGrantService.listReceivedGrants(profileId);
+        return ResponseEntity.ok(ApiResponse.success(grants));
+    }
+
+    /**
+     * Returns the bidirectional grant status between the current profile and one specific profile.
+     */
+    @GetMapping("/status/{otherProfileId}")
+    public ResponseEntity<ApiResponse<GrantStatusResponse>> getGrantStatus(
+            @PathVariable UUID otherProfileId) {
+        UUID currentProfileId = SecurityUtils.getCurrentProfileId();
+        GrantStatusResponse status = dataAccessGrantService.getGrantStatus(currentProfileId, otherProfileId);
+        return ResponseEntity.ok(ApiResponse.success(status));
     }
 }

@@ -30,6 +30,9 @@ public interface DataAccessGrantRepository extends JpaRepository<DataAccessGrant
     // Used by the controller to list all grants issued by a profile.
     List<DataAccessGrant> findByGranterProfileIdAndStatus(UUID granterProfileId, GrantStatus status);
 
+    // Used by the /received endpoint to list grants where the profile is the grantee.
+    List<DataAccessGrant> findByGranteeProfileIdAndStatus(UUID granteeProfileId, GrantStatus status);
+
     // Used by revokeAccess to locate the grant to mark as REVOKED.
     Optional<DataAccessGrant> findByGranterProfileIdAndGranteeProfileId(
             UUID granterProfileId, UUID granteeProfileId);

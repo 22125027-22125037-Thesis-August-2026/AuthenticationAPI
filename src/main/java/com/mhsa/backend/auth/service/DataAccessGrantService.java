@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mhsa.backend.auth.dto.DataAccessGrantResponse;
 import com.mhsa.backend.auth.dto.GrantAccessRequest;
+import com.mhsa.backend.auth.dto.GrantStatusResponse;
 import com.mhsa.backend.auth.model.AccessScope;
 import com.mhsa.backend.auth.model.DataAccessGrant;
 import com.mhsa.backend.auth.model.GrantStatus;
@@ -97,6 +98,40 @@ public class DataAccessGrantService {
                 .stream()
                 .map(DataAccessGrantResponse::from)
                 .toList();
+    }
+
+    public List<DataAccessGrantResponse> listReceivedGrants(UUID granteeProfileId) {
+        return grantRepository
+                .findByGranteeProfileIdAndStatus(granteeProfileId, GrantStatus.ACTIVE)
+                .stream()
+                .map(DataAccessGrantResponse::from)
+                .toList();
+    }
+
+    public GrantStatusResponse getGrantStatus(UUID currentProfileId, UUID otherProfileId) {
+        Instant now = Instant.now();
+
+        java.util.Optional<DataAccessGrant> myGrant = grantRepository
+                .findByGranterProfileIdAndGranteeProfileId(currentProfileId, otherProfileId);
+        java.util.Optional<DataAccessGrant> theirGrant = grantRepository
+                .findByGranterProfileIdAndGranteeProfileId(otherProfileId, currentProfileId);
+
+        boolean iGaveThemAccess = myGrant
+                .filter(g -> g.getStatus() == GrantStatus.ACTIVE)
+                .filter(g -> g.getExpiresAt() == null || g.getExpiresAt().isAfter(now))
+                .isPresent();
+
+        boolean theyGaveMeAccess = theirGrant
+                .filter(g -> g.getStatus() == GrantStatus.ACTIVE)
+                .filter(g -> g.getExpiresAt() == null || g.getExpiresAt().isAfter(now))
+                .isPresent();
+
+        return GrantStatusResponse.builder()
+                .iGaveThemAccess(iGaveThemAccess)
+                .theyGaveMeAccess(theyGaveMeAccess)
+                .myGrant(myGrant.map(DataAccessGrantResponse::from).orElse(null))
+                .theirGrant(theirGrant.map(DataAccessGrantResponse::from).orElse(null))
+                .build();
     }
 
     public DataAccessGrantResponse getGrant(UUID granterProfileId, UUID granteeProfileId, AccessScope scope) {

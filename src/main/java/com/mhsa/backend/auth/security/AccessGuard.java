@@ -47,4 +47,16 @@ public class AccessGuard {
 
         return dataAccessGrantService.hasDelegatedAccess(targetProfileId, principal.profileId());
     }
+
+    public boolean canManageGrants(Authentication authentication, UUID profileId) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedUserPrincipal principal)) {
+            return false;
+        }
+
+        if (principal.role() == Role.ADMIN) {
+            return true;
+        }
+
+        return principal.profileId() != null && principal.profileId().equals(profileId);
+    }
 }
