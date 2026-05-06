@@ -1,47 +1,4 @@
--- Add a dedicated teen test account with realistic one-week tracking data.
-
-INSERT INTO users (
-    user_id, email, password, role, full_name, dob, phone_number,
-    credits_balance, created_at, updated_at
-)
-VALUES (
-    '11111111-1111-4111-8111-111111111111'::uuid,
-    'testuser@gmail.com',
-    '$2a$10$.0bJohgRAL9pD3v.SCh6XuFITHBFTgODBVni7RhUCuPyPkGF3dyD2',
-    'TEEN',
-    'Nguyễn Văn Trọng',
-    DATE '2008-05-15',
-    '+84909999999',
-    500,
-    now() - interval '7 days',
-    now()
-)
-ON CONFLICT (email) DO NOTHING;
-
-INSERT INTO profiles (
-    profile_id, user_id, full_name, avatar_url, date_of_birth,
-    phone_number, created_at, updated_at, profile_type
-)
-VALUES (
-    '22222222-2222-4222-8222-222222222222'::uuid,
-    '11111111-1111-4111-8111-111111111111'::uuid,
-    'Nguyễn Văn Trọng',
-    'https://api.dicebear.com/7.x/notionists/svg?seed=Trong',
-    DATE '2008-05-15',
-    '+84909999999',
-    now() - interval '7 days',
-    now(),
-    'TEEN'
-)
-ON CONFLICT (profile_id) DO NOTHING;
-
-INSERT INTO teen_profile (profile_id, school, emergency_contact)
-VALUES (
-    '22222222-2222-4222-8222-222222222222'::uuid,
-    'THPT Nguyễn Trãi',
-    '+84901111222'
-)
-ON CONFLICT (profile_id) DO NOTHING;
+-- Add one-week tracking data for the pre-seeded teen account (see V2).
 
 -- Dữ liệu Nhật ký (Diary Entries) - Câu chuyện 7 ngày
 WITH diary_data AS (
@@ -61,7 +18,7 @@ INSERT INTO diary_entries (
 )
 SELECT
     (substr(md5('testuser-diary-' || d::text), 1, 8) || '-' || substr(md5('testuser-diary-' || d::text), 9, 4) || '-' || substr(md5('testuser-diary-' || d::text), 13, 4) || '-' || substr(md5('testuser-diary-' || d::text), 17, 4) || '-' || substr(md5('testuser-diary-' || d::text), 21, 12))::uuid,
-    '22222222-2222-4222-8222-222222222222'::uuid,
+    'e1d0add5-b9c8-57b5-36e6-059991832f17'::uuid,
     title, content, mood_tag, positivity_score,
     (current_date - (6 - d)),
     now() - ((6 - d) || ' days')::interval,
@@ -87,7 +44,7 @@ INSERT INTO food_logs (
 )
 SELECT
     (substr(md5('testuser-food-' || d::text), 1, 8) || '-' || substr(md5('testuser-food-' || d::text), 9, 4) || '-' || substr(md5('testuser-food-' || d::text), 13, 4) || '-' || substr(md5('testuser-food-' || d::text), 17, 4) || '-' || substr(md5('testuser-food-' || d::text), 21, 12))::uuid,
-    '22222222-2222-4222-8222-222222222222'::uuid,
+    'e1d0add5-b9c8-57b5-36e6-059991832f17'::uuid,
     water_glasses, food_description, satiety_level,
     (current_date - (6 - d)),
     now() - ((6 - d) || ' days')::interval
@@ -112,7 +69,7 @@ INSERT INTO mood_logs (
 )
 SELECT
     (substr(md5('testuser-mood-' || d::text), 1, 8) || '-' || substr(md5('testuser-mood-' || d::text), 9, 4) || '-' || substr(md5('testuser-mood-' || d::text), 13, 4) || '-' || substr(md5('testuser-mood-' || d::text), 17, 4) || '-' || substr(md5('testuser-mood-' || d::text), 21, 12))::uuid,
-    '22222222-2222-4222-8222-222222222222'::uuid,
+    'e1d0add5-b9c8-57b5-36e6-059991832f17'::uuid,
     mood_score, note,
     now() - ((6 - d) || ' days')::interval,
     now() - ((6 - d) || ' days')::interval,
@@ -139,7 +96,7 @@ INSERT INTO sleep_logs (
 )
 SELECT
     (substr(md5('testuser-sleep-' || d::text), 1, 8) || '-' || substr(md5('testuser-sleep-' || d::text), 9, 4) || '-' || substr(md5('testuser-sleep-' || d::text), 13, 4) || '-' || substr(md5('testuser-sleep-' || d::text), 17, 4) || '-' || substr(md5('testuser-sleep-' || d::text), 21, 12))::uuid,
-    '22222222-2222-4222-8222-222222222222'::uuid,
+    'e1d0add5-b9c8-57b5-36e6-059991832f17'::uuid,
     (date_trunc('day', current_date - (7 - d)) + start_time::time), -- Giờ ngủ tối hôm trước
     (date_trunc('day', current_date - (6 - d)) + end_time::time),   -- Giờ thức sáng hôm nay
     duration, quality, note,
@@ -158,7 +115,7 @@ INSERT INTO streaks (
 )
 VALUES (
     '33333333-3333-4333-8333-333333333333'::uuid,
-    '22222222-2222-4222-8222-222222222222'::uuid,
+    'e1d0add5-b9c8-57b5-36e6-059991832f17'::uuid,
     'DAILY_CHECKIN',
     7,
     7,
