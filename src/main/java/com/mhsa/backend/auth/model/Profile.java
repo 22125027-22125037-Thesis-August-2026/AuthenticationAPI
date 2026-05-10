@@ -56,6 +56,9 @@ public class Profile {
     @Column(name = "phone_number")
     private String phoneNumber;
 
+    @Column(name = "gender", length = 20)
+    private String gender;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

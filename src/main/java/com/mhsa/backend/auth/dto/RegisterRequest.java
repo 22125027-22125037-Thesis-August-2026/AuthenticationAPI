@@ -2,8 +2,7 @@ package com.mhsa.backend.auth.dto;
 
 import java.time.LocalDate;
 import java.math.BigDecimal;
-import java.util.UUID;
-
+import com.mhsa.backend.auth.model.AccountType;
 import com.mhsa.backend.auth.model.Role;
 
 import jakarta.validation.constraints.Email;
@@ -30,6 +29,11 @@ public class RegisterRequest {
     @NotNull
     private Role role;
 
+    // Common profile fields
+    private String gender;
+    private String pinCode;
+    private AccountType accountType;
+
     // Teen profile fields
     private String school;
     private String emergencyContact;
@@ -40,7 +44,4 @@ public class RegisterRequest {
     private Integer yearsOfExperience;
     private BigDecimal consultationFee;
     private Boolean verified;
-
-    // Parent profile fields
-    private UUID linkedTeenId;
 }

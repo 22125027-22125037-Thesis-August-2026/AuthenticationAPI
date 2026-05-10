@@ -1,5 +1,6 @@
 package com.mhsa.backend.auth.service;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.springframework.security.authentication.AuthenticationManager;
@@ -14,7 +15,6 @@ import com.mhsa.backend.auth.dto.LoginRequest;
 import com.mhsa.backend.auth.dto.ProfileUpdateRequest;
 import com.mhsa.backend.auth.dto.RegisterRequest;
 import com.mhsa.backend.auth.dto.UserResponse;
-import com.mhsa.backend.auth.model.ParentProfile;
 import com.mhsa.backend.auth.model.Profile;
 import com.mhsa.backend.auth.model.Role;
 import com.mhsa.backend.auth.model.User;
@@ -56,6 +56,8 @@ public class AuthService {
         user.setPhoneNumber(request.getPhoneNumber());
         user.setDob(request.getDob());
         user.setRole(request.getRole());
+        user.setPinCode(request.getPinCode());
+        user.setAccountType(request.getAccountType());
 
         userRepository.save(user);
         Profile profile = buildProfile(user, request);
@@ -75,6 +77,9 @@ public class AuthService {
                 .orElseThrow();
 
         Profile profile = resolveOrCreateProfile(user);
+
+        user.setLastLogin(LocalDateTime.now());
+        userRepository.save(user);
 
         // 3. Tạo Token
         var token = jwtUtils.generateToken(user.getId(), profile.getId(), user.getEmail(), user.getRole());
@@ -183,13 +188,6 @@ public class AuthService {
             return profile;
         }
 
-        if (role == Role.PARENT) {
-            ParentProfile profile = new ParentProfile();
-            populateBaseProfile(profile, user, request);
-            profile.setLinkedTeenId(request.getLinkedTeenId());
-            return profile;
-        }
-
         Profile profile = new Profile();
         populateBaseProfile(profile, user, request);
         return profile;
@@ -209,12 +207,7 @@ public class AuthService {
                             populateBaseProfile(therapistProfile, user, null);
                             yield therapistProfile;
                         }
-                        case PARENT -> {
-                            ParentProfile parentProfile = new ParentProfile();
-                            populateBaseProfile(parentProfile, user, null);
-                            yield parentProfile;
-                        }
-                        case ADMIN -> {
+                        case PARENT, ADMIN -> {
                             Profile baseProfile = new Profile();
                             populateBaseProfile(baseProfile, user, null);
                             yield baseProfile;
@@ -230,5 +223,8 @@ public class AuthService {
         profile.setAvatarUrl(request == null ? null : request.getAvatarUrl());
         profile.setDateOfBirth(request == null ? user.getDob() : request.getDob());
         profile.setPhoneNumber(request == null ? user.getPhoneNumber() : request.getPhoneNumber());
+        if (request != null) {
+            profile.setGender(request.getGender());
+        }
     }
 }

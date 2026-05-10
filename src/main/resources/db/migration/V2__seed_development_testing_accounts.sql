@@ -205,17 +205,6 @@ SELECT
 FROM generate_series(1, 30) AS s(n)
 ON CONFLICT (profile_id) DO NOTHING;
 
--- Parent profile details (linked_teen_id points to the paired teen user)
-INSERT INTO parent_profile (
-    profile_id,
-    linked_teen_id
-)
-SELECT
-    (regexp_replace(md5('dev-profile-parent-' || n::text), '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid,
-    (regexp_replace(md5('dev-user-teen-' || n::text), '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid
-FROM generate_series(1, 30) AS s(n)
-ON CONFLICT (profile_id) DO NOTHING;
-
 -- Therapist profile details
 INSERT INTO therapist_profile (
     profile_id,
@@ -241,3 +230,24 @@ SELECT
     (n % 3 <> 0)
 FROM generate_series(1, 30) AS s(n)
 ON CONFLICT (profile_id) DO NOTHING;
+
+-- DataAccessGrant: each teen grants READ_ALL access to their paired parent (replaces parent_profile.linked_teen_id)
+INSERT INTO data_access_grants (
+    grant_id,
+    granter_profile_id,
+    grantee_profile_id,
+    status,
+    access_scope,
+    granted_at,
+    expires_at
+)
+SELECT
+    (regexp_replace(md5('dev-grant-teen-parent-' || n::text), '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid,
+    (regexp_replace(md5('dev-profile-teen-' || n::text),      '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid,
+    (regexp_replace(md5('dev-profile-parent-' || n::text),    '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid,
+    'ACTIVE',
+    'READ_ALL',
+    now() - ((90 - n) || ' days')::interval,
+    NULL
+FROM generate_series(1, 30) AS s(n)
+ON CONFLICT (grant_id) DO NOTHING;

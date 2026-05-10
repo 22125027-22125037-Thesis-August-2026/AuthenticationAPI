@@ -11,6 +11,8 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -52,9 +54,23 @@ public class User {
 
     private String phoneNumber;
 
-    // --- Ví tiền (Quản lý chung bởi Parent) ---
+    // --- Ví tiền ---
     @Builder.Default
     private Integer creditsBalance = 0;
+
+    @Column(name = "pin_code", length = 10)
+    private String pinCode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_type", length = 20)
+    private AccountType accountType;
+
+    @Builder.Default
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
+
+    @Column(name = "last_login")
+    private LocalDateTime lastLogin;
 
     @OneToOne(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private Profile profile;
