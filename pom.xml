@@ -24,6 +24,7 @@
 
     <modules>
         <module>shared-jwt</module>
+        <module>shared-contracts</module>
         <module>app</module>
     </modules>
 
