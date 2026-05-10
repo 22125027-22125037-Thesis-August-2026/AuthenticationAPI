@@ -15,5 +15,6 @@ public class UserResponse {
     private String phoneNumber;
     private LocalDate dob;
     private String role;
-    private Integer creditsBalance; // Số dư ví
+    private Integer creditsBalance;
+    private String avatarUrl;
 }

@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mhsa.backend.auth.dto.AuthResponse;
 import com.mhsa.backend.auth.dto.LoginRequest;
+import com.mhsa.backend.auth.dto.ProfileUpdateRequest;
 import com.mhsa.backend.auth.dto.RegisterRequest;
 import com.mhsa.backend.auth.dto.UserResponse;
 import com.mhsa.backend.auth.model.ParentProfile;
@@ -105,6 +106,8 @@ public class AuthService {
         var user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        var profile = profileRepository.findByUser_Id(currentUserId).orElse(null);
+
         // 3. Convert sang DTO (Không trả về password!)
         return UserResponse.builder()
                 .id(user.getId())
@@ -114,6 +117,47 @@ public class AuthService {
                 .dob(user.getDob())
                 .role(user.getRole().name())
                 .creditsBalance(user.getCreditsBalance())
+                .avatarUrl(profile != null ? profile.getAvatarUrl() : null)
+                .build();
+    }
+
+    @Transactional
+    public UserResponse updateProfile(UUID userId, ProfileUpdateRequest request) {
+        var user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        var profile = profileRepository.findByUser_Id(userId)
+                .orElseThrow(() -> new RuntimeException("Profile not found"));
+
+        boolean userDirty = false;
+
+        if (request.getFullName() != null) {
+            user.setFullName(request.getFullName());
+            profile.setFullName(request.getFullName());
+            userDirty = true;
+        }
+        if (request.getPhoneNumber() != null) {
+            user.setPhoneNumber(request.getPhoneNumber());
+            profile.setPhoneNumber(request.getPhoneNumber());
+            userDirty = true;
+        }
+        if (request.getAvatarUrl() != null) {
+            profile.setAvatarUrl(request.getAvatarUrl());
+        }
+        if (userDirty) {
+            userRepository.save(user);
+        }
+        profileRepository.save(profile);
+
+        return UserResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .dob(user.getDob())
+                .role(user.getRole().name())
+                .creditsBalance(user.getCreditsBalance())
+                .avatarUrl(profile.getAvatarUrl())
                 .build();
     }
 

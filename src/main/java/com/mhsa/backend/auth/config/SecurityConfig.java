@@ -40,7 +40,8 @@ public class SecurityConfig {
                         "/api/v1/auth/**", // API Đăng ký/Đăng nhập
                         "/v3/api-docs/**", // Tài liệu JSON của Swagger
                         "/swagger-ui/**", // Giao diện Swagger
-                        "/swagger-ui.html" // Trang chủ Swagger (Redirect)
+                        "/swagger-ui.html", // Trang chủ Swagger (Redirect)
+                        "/uploads/**" // Static uploaded files (avatars, etc.)
                 ).permitAll()
                 // 2. Quan trọng: Mở trang báo lỗi (để nếu sai đường dẫn thì không bị chặn 403)
                 .requestMatchers("/error").permitAll()
