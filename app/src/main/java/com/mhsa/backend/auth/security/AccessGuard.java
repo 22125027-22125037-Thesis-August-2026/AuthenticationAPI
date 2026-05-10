@@ -5,7 +5,8 @@ import java.util.UUID;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
-import com.mhsa.backend.auth.model.Role;
+import com.mhsa.backend.auth.jwt.AuthenticatedUserPrincipal;
+import com.mhsa.backend.auth.jwt.Role;
 import com.mhsa.backend.auth.service.DataAccessGrantService;
 
 import lombok.RequiredArgsConstructor;
@@ -60,3 +61,4 @@ public class AccessGuard {
         return principal.profileId() != null && principal.profileId().equals(profileId);
     }
 }
+

@@ -17,7 +17,7 @@ import com.mhsa.backend.auth.dto.GrantAccessRequest;
 import com.mhsa.backend.auth.dto.GrantStatusResponse;
 import com.mhsa.backend.auth.service.DataAccessGrantService;
 import com.mhsa.backend.common.dto.ApiResponse;
-import com.mhsa.backend.common.util.SecurityUtils;
+import com.mhsa.backend.auth.jwt.SecurityUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import jakarta.validation.Valid;
@@ -88,3 +88,4 @@ public class DataAccessGrantController {
         return ResponseEntity.ok(ApiResponse.success(status));
     }
 }
+

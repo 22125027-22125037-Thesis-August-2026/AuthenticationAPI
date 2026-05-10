@@ -1,5 +1,7 @@
 package com.mhsa.backend.auth.model;
 
+import com.mhsa.backend.auth.jwt.Role;
+
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 

@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.mhsa.backend.common.util.SecurityUtils;
+import com.mhsa.backend.auth.jwt.SecurityUtils;
 import com.mhsa.backend.tracking.dto.SleepLogRequest;
 import com.mhsa.backend.tracking.dto.SleepLogResponse;
 import com.mhsa.backend.tracking.service.SleepLogService;
@@ -69,3 +69,4 @@ public class SleepLogController {
         return ResponseEntity.noContent().build();
     }
 }
+

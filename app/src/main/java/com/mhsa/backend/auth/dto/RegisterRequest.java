@@ -3,7 +3,7 @@ package com.mhsa.backend.auth.dto;
 import java.time.LocalDate;
 import java.math.BigDecimal;
 import com.mhsa.backend.auth.model.AccountType;
-import com.mhsa.backend.auth.model.Role;
+import com.mhsa.backend.auth.jwt.Role;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -45,3 +45,4 @@ public class RegisterRequest {
     private BigDecimal consultationFee;
     private Boolean verified;
 }
+

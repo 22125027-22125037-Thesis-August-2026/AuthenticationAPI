@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.mhsa.backend.common.util.SecurityUtils;
+import com.mhsa.backend.auth.jwt.SecurityUtils;
 import com.mhsa.backend.tracking.dto.MoodLogRequest;
 import com.mhsa.backend.tracking.dto.MoodLogResponse;
 import com.mhsa.backend.tracking.service.MoodLogService;
@@ -69,3 +69,4 @@ public class MoodLogController {
         return ResponseEntity.noContent().build();
     }
 }
+

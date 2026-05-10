@@ -20,7 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mhsa.backend.common.util.SecurityUtils;
+import com.mhsa.backend.auth.jwt.SecurityUtils;
 import com.mhsa.backend.tracking.dto.DiaryEntryRequest;
 import com.mhsa.backend.tracking.dto.DiaryEntryResponse;
 import com.mhsa.backend.tracking.service.DiaryEntryService;
@@ -120,3 +120,4 @@ public class DiaryEntryController {
         return request;
     }
 }
+

@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.mhsa.backend.common.util.SecurityUtils;
+import com.mhsa.backend.auth.jwt.SecurityUtils;
 import com.mhsa.backend.tracking.dto.FoodLogRequest;
 import com.mhsa.backend.tracking.dto.FoodLogResponse;
 import com.mhsa.backend.tracking.service.FoodLogService;
@@ -75,3 +75,4 @@ public class FoodLogController {
         return ResponseEntity.noContent().build();
     }
 }
+

@@ -19,7 +19,7 @@ import com.mhsa.backend.ai.dto.ChatSessionOverviewDto;
 import com.mhsa.backend.ai.service.ChatHistoryService;
 import com.mhsa.backend.ai.service.GeminiAiService;
 import com.mhsa.backend.common.dto.ApiResponse;
-import com.mhsa.backend.common.util.SecurityUtils;
+import com.mhsa.backend.auth.jwt.SecurityUtils;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -81,3 +81,4 @@ public class AiChatController {
         return ResponseEntity.ok(ApiResponse.success(messages));
     }
 }
+

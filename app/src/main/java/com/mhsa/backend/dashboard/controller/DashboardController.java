@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mhsa.backend.common.dto.ApiResponse;
-import com.mhsa.backend.common.util.SecurityUtils;
+import com.mhsa.backend.auth.jwt.SecurityUtils;
 import com.mhsa.backend.dashboard.dto.DashboardSummaryDto;
 import com.mhsa.backend.dashboard.service.DashboardService;
 
@@ -25,3 +25,4 @@ public class DashboardController {
         return ResponseEntity.ok(ApiResponse.success(summary));
     }
 }
+

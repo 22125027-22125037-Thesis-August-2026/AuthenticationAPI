@@ -16,14 +16,14 @@ import com.mhsa.backend.auth.dto.ProfileUpdateRequest;
 import com.mhsa.backend.auth.dto.RegisterRequest;
 import com.mhsa.backend.auth.dto.UserResponse;
 import com.mhsa.backend.auth.model.Profile;
-import com.mhsa.backend.auth.model.Role;
+import com.mhsa.backend.auth.jwt.Role;
 import com.mhsa.backend.auth.model.User;
 import com.mhsa.backend.auth.model.TeenProfile;
 import com.mhsa.backend.auth.model.TherapistProfile;
 import com.mhsa.backend.auth.repository.ProfileRepository;
 import com.mhsa.backend.auth.repository.UserRepository;
-import com.mhsa.backend.auth.utils.JwtUtils;
-import com.mhsa.backend.auth.security.AuthenticatedUserPrincipal;
+import com.mhsa.backend.auth.jwt.JwtUtils;
+import com.mhsa.backend.auth.jwt.AuthenticatedUserPrincipal;
 
 import lombok.RequiredArgsConstructor;
 
@@ -39,7 +39,7 @@ public class AuthService {
 
     @Transactional
     public String register(RegisterRequest request) {
-        // 1. Check email trùng
+        // 1. Check email trÃ¹ng
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email already exists!");
         }
@@ -48,11 +48,11 @@ public class AuthService {
             throw new RuntimeException("Role is required");
         }
 
-        // 2. Tạo User mới
+        // 2. Táº¡o User má»›i
         User user = new User();
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword())); // Mã hóa pass
+        user.setPassword(passwordEncoder.encode(request.getPassword())); // MÃ£ hÃ³a pass
         user.setPhoneNumber(request.getPhoneNumber());
         user.setDob(request.getDob());
         user.setRole(request.getRole());
@@ -67,12 +67,12 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        // 1. Xác thực username/password
+        // 1. XÃ¡c thá»±c username/password
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
-        // 2. Tìm user để lấy thông tin
+        // 2. TÃ¬m user Ä‘á»ƒ láº¥y thÃ´ng tin
         var user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow();
 
@@ -81,14 +81,14 @@ public class AuthService {
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
 
-        // 3. Tạo Token
+        // 3. Táº¡o Token
         var token = jwtUtils.generateToken(user.getId(), profile.getId(), user.getEmail(), user.getRole());
 
         return new AuthResponse(token, profile.getId(), user.getEmail(), user.getRole().name());
     }
 
     public UserResponse getCurrentUser() {
-        // 1. Lấy userId từ Security Context (Do JwtFilter đã set vào trước đó)
+        // 1. Láº¥y userId tá»« Security Context (Do JwtFilter Ä‘Ã£ set vÃ o trÆ°á»›c Ä‘Ã³)
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
                 || authentication.getPrincipal() == null) {
@@ -113,7 +113,7 @@ public class AuthService {
 
         var profile = profileRepository.findByUser_Id(currentUserId).orElse(null);
 
-        // 3. Convert sang DTO (Không trả về password!)
+        // 3. Convert sang DTO (KhÃ´ng tráº£ vá» password!)
         return UserResponse.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
@@ -228,3 +228,4 @@ public class AuthService {
         }
     }
 }
+

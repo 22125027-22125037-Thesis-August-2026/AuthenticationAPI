@@ -19,11 +19,11 @@ import com.mhsa.backend.auth.dto.LoginRequest;
 import com.mhsa.backend.auth.dto.ProfileUpdateRequest;
 import com.mhsa.backend.auth.dto.RegisterRequest;
 import com.mhsa.backend.auth.dto.UserResponse;
-import com.mhsa.backend.auth.security.AuthenticatedUserPrincipal;
+import com.mhsa.backend.auth.jwt.AuthenticatedUserPrincipal;
 import com.mhsa.backend.auth.service.AuthService;
 import com.mhsa.backend.auth.service.FileStorageService;
 import com.mhsa.backend.auth.service.TokenBlacklistService;
-import com.mhsa.backend.auth.utils.JwtUtils;
+import com.mhsa.backend.auth.jwt.JwtUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -100,3 +100,4 @@ public class AuthController {
         }
     }
 }
+
