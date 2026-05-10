@@ -23,6 +23,7 @@
     </properties>
 
     <modules>
+        <module>shared-jwt</module>
         <module>app</module>
     </modules>
 
