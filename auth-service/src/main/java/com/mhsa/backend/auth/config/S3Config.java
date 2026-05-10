@@ -1,0 +1,53 @@
+package com.mhsa.backend.auth.config;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
+
+import java.net.URI;
+
+@Configuration
+public class S3Config {
+
+    @Value("${s3.endpoint}")
+    private String s3Endpoint;
+
+    @Value("${s3.region}")
+    private String s3Region;
+
+    @Value("${s3.access-key}")
+    private String s3AccessKey;
+
+    @Value("${s3.secret-key}")
+    private String s3SecretKey;
+
+    @Value("${s3.path-style-access:true}")
+    private boolean pathStyleAccess;
+
+    @Bean
+    public S3Client s3Client() {
+        S3ClientBuilder builder = S3Client.builder()
+                .region(Region.of(s3Region))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(s3AccessKey, s3SecretKey)
+                ));
+
+        // Use path-style access for MinIO (dev), virtual-host-style for AWS S3 (prod)
+        if (pathStyleAccess) {
+            builder.forcePathStyle(true);
+        }
+
+        // Set custom endpoint for MinIO
+        if (!s3Endpoint.contains("amazonaws.com")) {
+            builder.endpointOverride(URI.create(s3Endpoint));
+        }
+
+        return builder.build();
+    }
+}

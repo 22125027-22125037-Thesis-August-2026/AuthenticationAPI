@@ -26,9 +26,14 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mhsa.backend.contract.JwksKey;
+import com.mhsa.backend.contract.JwksResponse;
 
 import javax.crypto.SecretKey;
 import java.security.KeyFactory;
+import java.security.interfaces.RSAPublicKey;
+import java.util.Base64;
+import java.util.List;
 
 @Component
 public class JwtUtils {
@@ -189,6 +194,31 @@ public class JwtUtils {
         }
 
         return null;
+    }
+
+    public JwksResponse getJwksResponse() {
+        if (signingMode != SigningMode.RS256 || publicVerificationKey == null) {
+            throw new IllegalStateException("JWKS is only available when using RS256 signing mode");
+        }
+
+        RSAPublicKey rsaKey = (RSAPublicKey) publicVerificationKey;
+        String modulus = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(rsaKey.getModulus().toByteArray());
+        String exponent = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(rsaKey.getPublicExponent().toByteArray());
+
+        JwksKey key = JwksKey.builder()
+                .keyType("RSA")
+                .use("sig")
+                .kid(jwtSigningKid)
+                .algorithm("RS256")
+                .modulus(modulus)
+                .exponent(exponent)
+                .build();
+
+        return JwksResponse.builder()
+                .keys(List.of(key))
+                .build();
     }
 
     private Claims parseClaims(String token) {

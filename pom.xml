@@ -26,6 +26,7 @@
         <module>shared-jwt</module>
         <module>shared-contracts</module>
         <module>app</module>
+        <module>auth-service</module>
     </modules>
 
 </project>

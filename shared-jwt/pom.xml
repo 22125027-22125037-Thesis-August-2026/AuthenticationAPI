@@ -16,6 +16,13 @@
     <description>Shared JWT utilities library (used by all microservices)</description>
 
     <dependencies>
+        <!-- Shared Contracts library -->
+        <dependency>
+            <groupId>com.mhsa</groupId>
+            <artifactId>shared-contracts</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+
         <!-- Spring Web (for HttpStatus, ResponseStatus, WebAuthenticationDetailsSource) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
