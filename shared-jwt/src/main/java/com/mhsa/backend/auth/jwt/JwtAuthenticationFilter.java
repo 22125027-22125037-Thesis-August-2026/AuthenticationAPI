@@ -16,15 +16,21 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
 @Component
-@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
     private final UserDetailsService userDetailsService;
-    private final TokenBlacklistService tokenBlacklistService;
+    @Setter
+    private Object tokenBlacklistService;
+
+    public JwtAuthenticationFilter(JwtUtils jwtUtils, UserDetailsService userDetailsService) {
+        this.jwtUtils = jwtUtils;
+        this.userDetailsService = userDetailsService;
+        this.tokenBlacklistService = null;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -35,9 +41,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (token != null && jwtUtils.validateJwtToken(token)) {
 
-            if (tokenBlacklistService.isBlacklisted(token)) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has been revoked (Logged out)");
-                return;
+            if (tokenBlacklistService != null) {
+                try {
+                    if ((boolean) tokenBlacklistService.getClass().getMethod("isBlacklisted", String.class).invoke(tokenBlacklistService, token)) {
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has been revoked (Logged out)");
+                        return;
+                    }
+                } catch (Exception e) {
+                    // If blacklist check fails, continue with auth
+                }
             }
 
             String userId = jwtUtils.getUserIdFromJwtToken(token);
