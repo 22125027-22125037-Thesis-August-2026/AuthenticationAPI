@@ -27,6 +27,7 @@
         <module>shared-contracts</module>
         <module>app</module>
         <module>auth-service</module>
+        <module>ai-service</module>
     </modules>
 
 </project>

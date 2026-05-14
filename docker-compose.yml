@@ -33,6 +33,25 @@ services:
     networks:
       - mhsa-network
 
+  postgres-ai:
+    image: postgres:16-alpine
+    container_name: postgres-ai
+    environment:
+      POSTGRES_DB: ai_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-ai-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mhsa-network
+
   minio:
     image: minio/minio:latest
     container_name: minio
@@ -56,7 +75,7 @@ services:
   auth-service:
     build:
       context: .
-      dockerfile: Dockerfile.build
+      dockerfile: auth-service/Dockerfile.build
     container_name: auth-service
     env_file:
       - .env
@@ -105,8 +124,60 @@ services:
     networks:
       - mhsa-network
 
+  ai-service:
+    build:
+      context: .
+      dockerfile: ai-service/Dockerfile.build
+    container_name: ai-service
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: 8082
+      SPRING_APPLICATION_NAME: ai-service
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-ai:5432/ai_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+      SPRING_FLYWAY_BASELINEONMIGRATE: "true"
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      MHSA_APP_JWTEXPIRATIONMS: 3600000
+      MHSA_APP_JWTISSUER: mhsa.backend
+      MHSA_APP_JWTAUDIENCE: mhsa-api
+      SERVICE_TRACKING_URL: http://backend-app:8080
+      SERVICE_AUTH_URL: http://auth-service:8081
+      GEMINI_API_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres-ai:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - mhsa-network
+
 volumes:
   postgres-auth-data:
+  postgres-ai-data:
   minio-data:
 
 networks:
