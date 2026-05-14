@@ -1,7 +1,7 @@
 -- Tracking Service Schema
--- All tables migrated from monolith
+-- All tables migrated from monolith with exact entity field mappings
 
-CREATE TABLE IF NOT EXISTS diary_entries (
+CREATE TABLE diary_entries (
     diary_entry_id UUID PRIMARY KEY,
     profile_id UUID NOT NULL,
     title VARCHAR(255),
@@ -13,18 +13,24 @@ CREATE TABLE IF NOT EXISTS diary_entries (
     updated_at TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS food_logs (
+CREATE INDEX idx_diary_entries_profile ON diary_entries(profile_id);
+CREATE INDEX idx_diary_entries_entry_date ON diary_entries(entry_date);
+
+CREATE TABLE food_logs (
     food_id UUID PRIMARY KEY,
     profile_id UUID NOT NULL,
     water_glasses INTEGER NOT NULL DEFAULT 0,
     food_description TEXT NOT NULL,
     satiety_level VARCHAR(100) NOT NULL,
     entry_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    created_at TIMESTAMP
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    CONSTRAINT uk_food_logs_profile_entry_date UNIQUE(profile_id, entry_date)
 );
-CREATE INDEX IF NOT EXISTS idx_food_logs_profile_entry_date ON food_logs(profile_id, entry_date);
 
-CREATE TABLE IF NOT EXISTS mood_logs (
+CREATE INDEX idx_food_logs_profile_entry_date ON food_logs(profile_id, entry_date);
+
+CREATE TABLE mood_logs (
     mood_log_id UUID PRIMARY KEY,
     profile_id UUID NOT NULL,
     mood_score INTEGER,
@@ -34,7 +40,10 @@ CREATE TABLE IF NOT EXISTS mood_logs (
     updated_at TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS sleep_logs (
+CREATE INDEX idx_mood_logs_profile ON mood_logs(profile_id);
+CREATE INDEX idx_mood_logs_logged_at ON mood_logs(logged_at);
+
+CREATE TABLE sleep_logs (
     sleep_log_id UUID PRIMARY KEY,
     profile_id UUID NOT NULL,
     sleep_start_at TIMESTAMP,
@@ -47,9 +56,11 @@ CREATE TABLE IF NOT EXISTS sleep_logs (
     created_at TIMESTAMP,
     updated_at TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_sleep_logs_profile_entry_date ON sleep_logs(profile_id, entry_date);
 
-CREATE TABLE IF NOT EXISTS streaks (
+CREATE INDEX idx_sleep_logs_profile_entry_date ON sleep_logs(profile_id, entry_date);
+CREATE INDEX idx_sleep_logs_profile_logged_at ON sleep_logs(profile_id, logged_at);
+
+CREATE TABLE streaks (
     streak_id UUID PRIMARY KEY,
     profile_id UUID NOT NULL,
     streak_type VARCHAR(50) NOT NULL,
@@ -58,11 +69,12 @@ CREATE TABLE IF NOT EXISTS streaks (
     last_logged_at TIMESTAMP,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
-    UNIQUE(profile_id, streak_type)
+    CONSTRAINT uk_streaks_profile_type UNIQUE(profile_id, streak_type)
 );
-CREATE INDEX IF NOT EXISTS idx_streaks_profile_type ON streaks(profile_id, streak_type);
 
-CREATE TABLE IF NOT EXISTS media_attachments (
+CREATE INDEX idx_streaks_profile_type ON streaks(profile_id, streak_type);
+
+CREATE TABLE media_attachments (
     media_attachment_id UUID PRIMARY KEY,
     profile_id UUID NOT NULL,
     diary_entry_id UUID,
@@ -75,3 +87,6 @@ CREATE TABLE IF NOT EXISTS media_attachments (
     created_at TIMESTAMP,
     CONSTRAINT fk_media_attachments_diary_entry FOREIGN KEY (diary_entry_id) REFERENCES diary_entries(diary_entry_id)
 );
+
+CREATE INDEX idx_media_attachments_profile ON media_attachments(profile_id);
+CREATE INDEX idx_media_attachments_diary_entry_id ON media_attachments(diary_entry_id);

@@ -13,19 +13,38 @@ public class AuthEventListener {
 
     @RabbitListener(queues = "auth.user.deleted")
     public void onUserDeleted(String event) {
-        log.info("User deleted event received: {}", event);
-        // TODO: Clean up all tracking data for deleted user
+        try {
+            log.info("User deleted event received: {}", event);
+            // TODO: Parse event JSON to extract userId
+            // TODO: Delete all diary_entries, food_logs, mood_logs, sleep_logs, streaks, media_attachments for this user
+            // TODO: Invalidate cache entries for this user
+        } catch (Exception e) {
+            log.error("Error processing user deleted event: {}", event, e);
+        }
     }
 
     @RabbitListener(queues = "auth.user.updated")
     public void onUserUpdated(String event) {
-        log.info("User updated event received: {}", event);
-        // TODO: Invalidate cached context for updated user
+        try {
+            log.info("User updated event received: {}", event);
+            // TODO: Parse event JSON to extract userId
+            // TODO: Invalidate all cached context for this user
+            // TODO: Update user metadata if needed
+        } catch (Exception e) {
+            log.error("Error processing user updated event: {}", event, e);
+        }
     }
 
     @RabbitListener(queues = "auth.grant.created")
     public void onGrantCreated(String event) {
-        log.info("Auth grant created event received: {}", event);
-        // TODO: Update access permissions for cross-user data access
+        try {
+            log.info("Auth grant created event received: {}", event);
+            // TODO: Parse event JSON to extract grantor_id and grantee_id
+            // TODO: Determine grant type (READ, WRITE)
+            // TODO: Store data access grant in database (Phase 4 feature)
+            // TODO: Invalidate cache for affected users
+        } catch (Exception e) {
+            log.error("Error processing grant created event: {}", event, e);
+        }
     }
 }
