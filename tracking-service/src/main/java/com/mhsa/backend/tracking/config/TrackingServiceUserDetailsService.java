@@ -1,4 +1,4 @@
-package com.mhsa.backend.ai.config;
+package com.mhsa.backend.tracking.config;
 
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -7,7 +7,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
-public class AiServiceUserDetailsService implements UserDetailsService {
+public class TrackingServiceUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {

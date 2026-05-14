@@ -52,6 +52,25 @@ services:
     networks:
       - mhsa-network
 
+  postgres-tracking:
+    image: postgres:16-alpine
+    container_name: postgres-tracking
+    environment:
+      POSTGRES_DB: tracking_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-tracking-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mhsa-network
+
   minio:
     image: minio/minio:latest
     container_name: minio
@@ -152,7 +171,7 @@ services:
       MHSA_APP_JWTEXPIRATIONMS: 3600000
       MHSA_APP_JWTISSUER: mhsa.backend
       MHSA_APP_JWTAUDIENCE: mhsa-api
-      SERVICE_TRACKING_URL: http://backend-app:8080
+      SERVICE_TRACKING_URL: http://tracking-service:8083
       SERVICE_AUTH_URL: http://auth-service:8081
       GEMINI_API_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
       LOGGING_LEVEL_ROOT: INFO
@@ -166,8 +185,59 @@ services:
         condition: service_healthy
       auth-service:
         condition: service_healthy
+      tracking-service:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - mhsa-network
+
+  tracking-service:
+    build:
+      context: .
+      dockerfile: tracking-service/Dockerfile.build
+    container_name: tracking-service
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: 8083
+      SPRING_APPLICATION_NAME: tracking-service
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-tracking:5432/tracking_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+      SPRING_FLYWAY_BASELINEONMIGRATE: "true"
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      MHSA_APP_JWTEXPIRATIONMS: 3600000
+      MHSA_APP_JWTISSUER: mhsa.backend
+      MHSA_APP_JWTAUDIENCE: mhsa-api
+      SERVICE_AUTH_URL: http://auth-service:8081
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres-tracking:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -178,6 +248,7 @@ services:
 volumes:
   postgres-auth-data:
   postgres-ai-data:
+  postgres-tracking-data:
   minio-data:
 
 networks:

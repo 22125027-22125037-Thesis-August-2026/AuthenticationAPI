@@ -28,6 +28,7 @@
         <module>app</module>
         <module>auth-service</module>
         <module>ai-service</module>
+        <module>tracking-service</module>
     </modules>
 
 </project>
