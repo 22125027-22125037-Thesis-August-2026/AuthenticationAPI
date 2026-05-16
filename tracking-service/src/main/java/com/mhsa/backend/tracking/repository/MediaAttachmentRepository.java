@@ -29,4 +29,6 @@ public interface MediaAttachmentRepository extends JpaRepository<MediaAttachment
     );
 
         Optional<MediaAttachment> findByIdAndProfileId(UUID id, UUID profileId);
+
+    void deleteByProfileId(UUID profileId);
 }

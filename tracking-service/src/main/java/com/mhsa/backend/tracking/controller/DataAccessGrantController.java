@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.mhsa.backend.contract.ApiResponse;
 import com.mhsa.backend.tracking.dto.DataAccessGrantRequest;
 import com.mhsa.backend.tracking.dto.DataAccessGrantResponse;
-import com.mhsa.backend.tracking.jwt.SecurityUtils;
+import com.mhsa.backend.auth.jwt.SecurityUtils;
 import com.mhsa.backend.tracking.service.DataAccessGrantService;
 
 import jakarta.validation.Valid;

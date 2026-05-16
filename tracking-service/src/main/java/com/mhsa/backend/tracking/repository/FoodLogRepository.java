@@ -22,4 +22,6 @@ public interface FoodLogRepository extends JpaRepository<FoodLog, UUID> {
     Optional<FoodLog> findByIdAndProfileId(UUID id, UUID profileId);
 
     Optional<FoodLog> findByProfileIdAndEntryDate(UUID profileId, LocalDate entryDate);
+
+    void deleteByProfileId(UUID profileId);
 }

@@ -20,4 +20,6 @@ public interface SleepLogRepository extends JpaRepository<SleepLog, UUID> {
     Optional<SleepLog> findByIdAndProfileId(UUID id, UUID profileId);
 
     Optional<SleepLog> findByProfileIdAndEntryDate(UUID profileId, LocalDate entryDate);
+
+    void deleteByProfileId(UUID profileId);
 }

@@ -21,4 +21,6 @@ public interface MoodLogRepository extends JpaRepository<MoodLog, UUID> {
     Optional<MoodLog> findTopByProfileIdOrderByLoggedAtDesc(UUID profileId);
 
     Optional<MoodLog> findByIdAndProfileId(UUID id, UUID profileId);
+
+    void deleteByProfileId(UUID profileId);
 }
