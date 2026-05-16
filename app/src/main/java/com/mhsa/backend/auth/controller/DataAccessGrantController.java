@@ -16,7 +16,7 @@ import com.mhsa.backend.auth.dto.DataAccessGrantResponse;
 import com.mhsa.backend.auth.dto.GrantAccessRequest;
 import com.mhsa.backend.auth.dto.GrantStatusResponse;
 import com.mhsa.backend.auth.service.DataAccessGrantService;
-import com.mhsa.backend.common.dto.ApiResponse;
+import com.mhsa.backend.contract.ApiResponse;
 import com.mhsa.backend.auth.jwt.SecurityUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 
