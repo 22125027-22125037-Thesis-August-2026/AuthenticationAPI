@@ -29,9 +29,9 @@ public class InternalController {
         try {
             ObjectNode stats = objectMapper.createObjectNode();
 
-            var sessions = chatSessionRepository.findByProfileIdOrderByCreatedAtDesc(profileId);
+            var sessions = chatSessionRepository.findAllByProfileIdOrderByUpdatedAtDesc(profileId);
             stats.put("totalSessions", sessions.size());
-            stats.put("activeSessions", (int) sessions.stream().filter(s -> !s.isEnded()).count());
+            stats.put("activeSessions", sessions.size());
 
             if (!sessions.isEmpty()) {
                 var latestSession = sessions.get(0);
