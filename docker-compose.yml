@@ -1,6 +1,30 @@
 version: '3.8'
 
 services:
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: nginx
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+      tracking-service:
+        condition: service_healthy
+      dashboard-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - mhsa-network
+
   postgres-auth:
     image: postgres:16-alpine
     container_name: postgres-auth
@@ -129,6 +153,10 @@ services:
       SPRING_FLYWAY_BASELINEONMIGRATE: "true"
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
       MHSA_APP_JWTEXPIRATIONMS: 3600000
       MHSA_APP_JWTISSUER: mhsa.backend
       MHSA_APP_JWTAUDIENCE: mhsa-api
@@ -148,6 +176,8 @@ services:
       postgres-auth:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -251,10 +281,46 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
       auth-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - mhsa-network
+
+  dashboard-service:
+    build:
+      context: .
+      dockerfile: dashboard-service/Dockerfile.build
+    container_name: dashboard-service
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: 8084
+      SPRING_APPLICATION_NAME: dashboard-service
+      MHSA_APP_JWTEXPIRATIONMS: 3600000
+      MHSA_APP_JWTISSUER: mhsa.backend
+      MHSA_APP_JWTAUDIENCE: mhsa-api
+      MHSA_APP_JWKSENDPOINT: http://auth-service:8081/internal/v1/.well-known/jwks.json
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
+    ports:
+      - "8084:8084"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      tracking-service:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/api/v1/dashboard/health"]
       interval: 30s
       timeout: 10s
       retries: 5

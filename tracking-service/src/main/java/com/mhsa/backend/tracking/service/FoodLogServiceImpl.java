@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,7 +15,9 @@ import com.mhsa.backend.tracking.dto.FoodLogRequest;
 import com.mhsa.backend.tracking.dto.FoodLogResponse;
 import com.mhsa.backend.tracking.entity.FoodLog;
 import com.mhsa.backend.tracking.mapper.FoodLogMapper;
+import com.mhsa.backend.tracking.messaging.TrackingEventPublisher;
 import com.mhsa.backend.tracking.repository.FoodLogRepository;
+import com.mhsa.backend.tracking.service.StreakService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,9 +28,12 @@ public class FoodLogServiceImpl implements FoodLogService {
 
     private final FoodLogRepository foodLogRepository;
     private final FoodLogMapper foodLogMapper;
+    private final StreakService streakService;
+    private final TrackingEventPublisher trackingEventPublisher;
 
     @Override
     @Transactional
+    @CacheEvict(value = "context", key = "#profileId.toString() + '_7'", beforeInvocation = false)
     public FoodLogResponse create(UUID profileId, FoodLogRequest request) {
         if (profileId == null || request == null) {
             throw new IllegalArgumentException("profileId is required");
@@ -40,6 +46,8 @@ public class FoodLogServiceImpl implements FoodLogService {
         applyRequestToEntity(entityToSave, request, profileId, entryDate);
 
         FoodLog savedEntity = foodLogRepository.save(entityToSave);
+        streakService.updateStreak(profileId);
+        trackingEventPublisher.publishFoodLogged(profileId);
         return foodLogMapper.toResponseDTO(savedEntity);
     }
 

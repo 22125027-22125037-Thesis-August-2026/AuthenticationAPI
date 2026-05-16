@@ -3,6 +3,7 @@ package com.mhsa.backend.tracking.service;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,7 @@ import com.mhsa.backend.tracking.dto.MoodLogRequest;
 import com.mhsa.backend.tracking.dto.MoodLogResponse;
 import com.mhsa.backend.tracking.entity.MoodLog;
 import com.mhsa.backend.tracking.mapper.MoodLogMapper;
+import com.mhsa.backend.tracking.messaging.TrackingEventPublisher;
 import com.mhsa.backend.tracking.repository.MoodLogRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -24,9 +26,11 @@ public class MoodLogServiceImpl implements MoodLogService {
     private final MoodLogRepository moodLogRepository;
     private final MoodLogMapper moodLogMapper;
     private final StreakService streakService;
+    private final TrackingEventPublisher trackingEventPublisher;
 
     @Override
     @Transactional
+    @CacheEvict(value = "context", key = "#profileId.toString() + '_7'", beforeInvocation = false)
     public MoodLogResponse create(UUID profileId, MoodLogRequest request) {
         if (request == null || profileId == null) {
             throw new IllegalArgumentException("profileId is required");
@@ -36,6 +40,7 @@ public class MoodLogServiceImpl implements MoodLogService {
         entityToSave.setProfileId(profileId);
         MoodLog savedEntity = moodLogRepository.save(entityToSave);
         streakService.updateStreak(profileId);
+        trackingEventPublisher.publishMoodLogged(profileId, savedEntity.getMoodScore());
 
         return moodLogMapper.toResponseDTO(savedEntity);
     }

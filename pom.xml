@@ -29,6 +29,7 @@
         <module>auth-service</module>
         <module>ai-service</module>
         <module>tracking-service</module>
+        <module>dashboard-service</module>
     </modules>
 
 </project>

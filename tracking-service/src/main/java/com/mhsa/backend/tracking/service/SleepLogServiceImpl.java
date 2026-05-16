@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,7 @@ import com.mhsa.backend.tracking.dto.SleepLogRequest;
 import com.mhsa.backend.tracking.dto.SleepLogResponse;
 import com.mhsa.backend.tracking.entity.SleepLog;
 import com.mhsa.backend.tracking.mapper.SleepLogMapper;
+import com.mhsa.backend.tracking.messaging.TrackingEventPublisher;
 import com.mhsa.backend.tracking.repository.SleepLogRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -27,9 +29,11 @@ public class SleepLogServiceImpl implements SleepLogService {
     private final SleepLogRepository sleepLogRepository;
     private final SleepLogMapper sleepLogMapper;
     private final StreakService streakService;
+    private final TrackingEventPublisher trackingEventPublisher;
 
     @Override
     @Transactional
+    @CacheEvict(value = "context", key = "#profileId.toString() + '_7'", beforeInvocation = false)
     public SleepLogResponse create(UUID profileId, SleepLogRequest request) {
         if (request == null || profileId == null) {
             throw new IllegalArgumentException("profileId is required");
@@ -43,6 +47,7 @@ public class SleepLogServiceImpl implements SleepLogService {
 
         SleepLog savedEntity = sleepLogRepository.save(entityToSave);
         streakService.updateStreak(profileId);
+        trackingEventPublisher.publishSleepLogged(profileId, savedEntity.getDurationMinutes());
 
         return sleepLogMapper.toResponseDTO(savedEntity);
     }

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.mhsa.backend.auth.dto.DataAccessGrantResponse;
 import com.mhsa.backend.auth.dto.GrantAccessRequest;
 import com.mhsa.backend.auth.dto.GrantStatusResponse;
+import com.mhsa.backend.auth.messaging.AuthEventPublisher;
 import com.mhsa.backend.auth.service.DataAccessGrantService;
 import com.mhsa.backend.contract.ApiResponse;
 import com.mhsa.backend.auth.jwt.SecurityUtils;
@@ -29,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 public class DataAccessGrantController {
 
     private final DataAccessGrantService dataAccessGrantService;
+    private final AuthEventPublisher authEventPublisher;
 
     /**
      * Grant another profile access to your tracking data.
@@ -39,6 +41,7 @@ public class DataAccessGrantController {
             @Valid @RequestBody GrantAccessRequest request) {
         UUID granterProfileId = SecurityUtils.getCurrentProfileId();
         DataAccessGrantResponse response = dataAccessGrantService.grantAccess(granterProfileId, request);
+        authEventPublisher.publishGrantCreated(granterProfileId, response.getGranteeProfileId());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -50,6 +53,7 @@ public class DataAccessGrantController {
             @PathVariable UUID granteeProfileId) {
         UUID granterProfileId = SecurityUtils.getCurrentProfileId();
         dataAccessGrantService.revokeAccess(granterProfileId, granteeProfileId);
+        authEventPublisher.publishGrantRevoked(granterProfileId, granteeProfileId);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 

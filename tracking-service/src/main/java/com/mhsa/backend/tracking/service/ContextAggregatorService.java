@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import com.mhsa.backend.tracking.entity.DiaryEntry;
@@ -28,6 +29,7 @@ public class ContextAggregatorService {
     private final DiaryEntryRepository diaryEntryRepository;
     private final FoodLogRepository foodLogRepository;
 
+    @Cacheable(value = "context", key = "#profileId.toString() + '_' + #days")
     public String getUserContextSummary(UUID profileId, int days) {
         try {
             LocalDate startDate = LocalDate.now().minusDays(days);

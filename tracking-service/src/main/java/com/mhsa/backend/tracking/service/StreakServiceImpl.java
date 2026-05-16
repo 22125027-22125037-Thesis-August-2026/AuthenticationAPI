@@ -14,6 +14,7 @@ import com.mhsa.backend.tracking.dto.StreakRequest;
 import com.mhsa.backend.tracking.dto.StreakResponse;
 import com.mhsa.backend.tracking.entity.Streak;
 import com.mhsa.backend.tracking.mapper.StreakMapper;
+import com.mhsa.backend.tracking.messaging.TrackingEventPublisher;
 import com.mhsa.backend.tracking.repository.StreakRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class StreakServiceImpl implements StreakService {
 
     private final StreakRepository streakRepository;
     private final StreakMapper streakMapper;
+    private final TrackingEventPublisher trackingEventPublisher;
 
     @Override
     @Transactional
@@ -159,6 +161,7 @@ public class StreakServiceImpl implements StreakService {
 
         streak.setLastLoggedAt(now);
         Streak savedEntity = streakRepository.save(streak);
+        trackingEventPublisher.publishStreakUpdated(profileId, savedEntity.getStreakType());
         return streakMapper.toResponseDTO(savedEntity);
     }
 

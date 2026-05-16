@@ -6,6 +6,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import com.mhsa.backend.tracking.dto.DiaryEntryResponse;
 import com.mhsa.backend.tracking.entity.DiaryEntry;
 import com.mhsa.backend.tracking.entity.MediaAttachment;
 import com.mhsa.backend.tracking.mapper.DiaryEntryMapper;
+import com.mhsa.backend.tracking.messaging.TrackingEventPublisher;
 import com.mhsa.backend.tracking.repository.DiaryEntryRepository;
 import com.mhsa.backend.tracking.repository.MediaAttachmentRepository;
 
@@ -33,9 +35,11 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
     private final MediaAttachmentRepository mediaAttachmentRepository;
     private final DiaryEntryMapper diaryEntryMapper;
     private final StreakService streakService;
+    private final TrackingEventPublisher trackingEventPublisher;
 
     @Override
     @Transactional
+    @CacheEvict(value = "context", key = "#profileId.toString() + '_7'", beforeInvocation = false)
     public DiaryEntryResponse create(UUID profileId, DiaryEntryRequest request, List<MultipartFile> files) {
         if (request == null || profileId == null) {
             log.warn("Create diary entry rejected: profileId or request is null. profileId={}", profileId);
@@ -83,8 +87,9 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
             log.info("Saved {} attachment record(s) for diaryEntryId={}", savedAttachments.size(), savedEntity.getId());
         }
 
-        // 3) Update streak and return response DTO.
+        // 3) Update streak and publish event.
         streakService.updateStreak(profileId);
+        trackingEventPublisher.publishDiaryEntryCreated(profileId, savedEntity.getId());
         log.info("Streak updated for profileId={} after diary entry creation", profileId);
 
         DiaryEntryResponse response = diaryEntryMapper.toResponseDTO(savedEntity);
