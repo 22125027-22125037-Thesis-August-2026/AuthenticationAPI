@@ -1,45 +1,362 @@
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: mhsa_postgres
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-123456}
-      POSTGRES_DB: mhsa_db
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: nginx
     ports:
-      - "${POSTGRES_HOST_PORT:-5433}:5432"
+      - "8080:8080"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+      tracking-service:
+        condition: service_healthy
+      dashboard-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - mhsa-network
+
+  postgres-auth:
+    image: postgres:16-alpine
+    container_name: postgres-auth
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-auth-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mhsa-network
 
   redis:
     image: redis:7-alpine
-    container_name: mhsa_redis
-    restart: always
+    container_name: redis
     ports:
-      - "${REDIS_HOST_PORT:-6379}:6379"
-
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: mhsa_pgadmin
-    restart: always
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@mhsa.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "${PGADMIN_HOST_PORT:-5050}:80"
-    depends_on:
-      - postgres
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mhsa-network
 
   rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: mhsa_rabbitmq
-    restart: always
-    ports:
-      - "${RABBITMQ_AMQP_HOST_PORT:-5672}:5672" # Port giao tiếp giữa các service
-      - "${RABBITMQ_MANAGEMENT_HOST_PORT:-15672}:15672" # Port trang quản lý (Management UI)
+    image: rabbitmq:3.12-management-alpine
+    container_name: rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mhsa-network
+
+  postgres-ai:
+    image: postgres:16-alpine
+    container_name: postgres-ai
+    environment:
+      POSTGRES_DB: ai_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-ai-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mhsa-network
+
+  postgres-tracking:
+    image: postgres:16-alpine
+    container_name: postgres-tracking
+    environment:
+      POSTGRES_DB: tracking_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-tracking-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mhsa-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - mhsa-network
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set minio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb minio/mhsa-media --ignore-existing;
+      /usr/bin/mc version enable minio/mhsa-media;
+      echo 'MinIO bucket mhsa-media initialized successfully'
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - mhsa-network
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile.build
+    container_name: auth-service
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: 8081
+      SPRING_APPLICATION_NAME: auth-service
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+      SPRING_FLYWAY_BASELINEONMIGRATE: "true"
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      MHSA_APP_JWTEXPIRATIONMS: 3600000
+      MHSA_APP_JWTISSUER: mhsa.backend
+      MHSA_APP_JWTAUDIENCE: mhsa-api
+      MHSA_APP_JWTSIGNINGKID: mhsa.app.jwtSigningKid
+      MHSA_APP_JWTALLOWHZ256FALLBACK: "false"
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: mhsa-media
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_PATH_STYLE_ACCESS: "true"
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
+    ports:
+      - "8085:8081"
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - mhsa-network
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: ai-service/Dockerfile.build
+    container_name: ai-service
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: 8082
+      SPRING_APPLICATION_NAME: ai-service
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-ai:5432/ai_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+      SPRING_FLYWAY_BASELINEONMIGRATE: "true"
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      MHSA_APP_JWTEXPIRATIONMS: 3600000
+      MHSA_APP_JWTISSUER: mhsa.backend
+      MHSA_APP_JWTAUDIENCE: mhsa-api
+      MHSA_APP_JWTSIGNINGKID: mhsa.app.jwtSigningKid
+      MHSA_APP_JWTPRIVATEKEY: ${JWT_PRIVATE_KEY}
+      MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
+      SERVICE_TRACKING_URL: http://tracking-service:8083
+      SERVICE_AUTH_URL: http://auth-service:8081
+      GEMINI_API_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres-ai:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      tracking-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - mhsa-network
+
+  tracking-service:
+    build:
+      context: .
+      dockerfile: tracking-service/Dockerfile.build
+    container_name: tracking-service
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: 8083
+      SPRING_APPLICATION_NAME: tracking-service
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-tracking:5432/tracking_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+      SPRING_FLYWAY_BASELINEONMIGRATE: "true"
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      MHSA_APP_JWTEXPIRATIONMS: 3600000
+      MHSA_APP_JWTISSUER: mhsa.backend
+      MHSA_APP_JWTAUDIENCE: mhsa-api
+      MHSA_APP_JWTSIGNINGKID: mhsa.app.jwtSigningKid
+      MHSA_APP_JWTPRIVATEKEY: ${JWT_PRIVATE_KEY}
+      MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
+      SERVICE_AUTH_URL: http://auth-service:8081
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres-tracking:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - mhsa-network
+
+  dashboard-service:
+    build:
+      context: .
+      dockerfile: dashboard-service/Dockerfile.build
+    container_name: dashboard-service
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: 8084
+      SPRING_APPLICATION_NAME: dashboard-service
+      MHSA_APP_JWTEXPIRATIONMS: 3600000
+      MHSA_APP_JWTISSUER: mhsa.backend
+      MHSA_APP_JWTAUDIENCE: mhsa-api
+      MHSA_APP_JWKSENDPOINT: http://auth-service:8081/internal/v1/.well-known/jwks.json
+      MHSA_APP_JWTPRIVATEKEY: ${JWT_PRIVATE_KEY}
+      MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
+    ports:
+      - "8084:8084"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      tracking-service:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/api/v1/dashboard/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - mhsa-network
+
 volumes:
-  postgres_data:
+  postgres-auth-data:
+  postgres-ai-data:
+  postgres-tracking-data:
+  minio-data:
+
+networks:
+  mhsa-network:
+    driver: bridge
