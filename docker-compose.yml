@@ -222,6 +222,7 @@ services:
       SERVICE_TRACKING_URL: http://tracking-service:8083
       SERVICE_AUTH_URL: http://auth-service:8081
       GEMINI_API_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
