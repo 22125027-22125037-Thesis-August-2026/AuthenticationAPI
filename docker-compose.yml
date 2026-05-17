@@ -16,7 +16,7 @@ services:
       dashboard-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -169,7 +169,7 @@ services:
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
-      - "8081:8081"
+      - "8085:8081"
     depends_on:
       postgres-auth:
         condition: service_healthy
@@ -180,7 +180,7 @@ services:
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -216,6 +216,9 @@ services:
       MHSA_APP_JWTEXPIRATIONMS: 3600000
       MHSA_APP_JWTISSUER: mhsa.backend
       MHSA_APP_JWTAUDIENCE: mhsa-api
+      MHSA_APP_JWTSIGNINGKID: mhsa.app.jwtSigningKid
+      MHSA_APP_JWTPRIVATEKEY: ${JWT_PRIVATE_KEY}
+      MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
       SERVICE_TRACKING_URL: http://tracking-service:8083
       SERVICE_AUTH_URL: http://auth-service:8081
       GEMINI_API_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
@@ -233,7 +236,7 @@ services:
       tracking-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -269,6 +272,9 @@ services:
       MHSA_APP_JWTEXPIRATIONMS: 3600000
       MHSA_APP_JWTISSUER: mhsa.backend
       MHSA_APP_JWTAUDIENCE: mhsa-api
+      MHSA_APP_JWTSIGNINGKID: mhsa.app.jwtSigningKid
+      MHSA_APP_JWTPRIVATEKEY: ${JWT_PRIVATE_KEY}
+      MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
       SERVICE_AUTH_URL: http://auth-service:8081
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
@@ -284,7 +290,7 @@ services:
       auth-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -306,6 +312,8 @@ services:
       MHSA_APP_JWTISSUER: mhsa.backend
       MHSA_APP_JWTAUDIENCE: mhsa-api
       MHSA_APP_JWKSENDPOINT: http://auth-service:8081/internal/v1/.well-known/jwks.json
+      MHSA_APP_JWTPRIVATEKEY: ${JWT_PRIVATE_KEY}
+      MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
@@ -318,7 +326,7 @@ services:
       ai-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8084/api/v1/dashboard/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/api/v1/dashboard/health"]
       interval: 30s
       timeout: 10s
       retries: 5

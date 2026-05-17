@@ -59,7 +59,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             UserDetails userDetails = null;
             if (email != null && !email.isBlank()) {
-                userDetails = userDetailsService.loadUserByUsername(email);
+                try {
+                    userDetails = userDetailsService.loadUserByUsername(email);
+                } catch (Exception e) {
+                    // User not found in UserDetailsService - this is acceptable for JWT-based auth
+                    // where we rely on the JWT claims rather than a local user database
+                }
             }
 
             UsernamePasswordAuthenticationToken authentication
