@@ -40,7 +40,8 @@ public class SecurityConfig {
                 // 1. Mở các API public (Auth, Swagger, API Docs)
                 .requestMatchers(
                         "/api/v1/auth/**", // API Đăng ký/Đăng nhập
-                        "/internal/v1/**", // Internal APIs (JWKS, grants check)
+                        "/internal/**", // Internal APIs (JWKS, grants check)
+                        "/actuator/**", // Health checks
                         "/v3/api-docs/**", // Tài liệu JSON của Swagger
                         "/swagger-ui/**", // Giao diện Swagger
                         "/swagger-ui.html", // Trang chủ Swagger (Redirect)

@@ -25,7 +25,6 @@
     <modules>
         <module>shared-jwt</module>
         <module>shared-contracts</module>
-        <module>app</module>
         <module>auth-service</module>
         <module>ai-service</module>
         <module>tracking-service</module>

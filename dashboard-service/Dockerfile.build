@@ -7,5 +7,7 @@ RUN apk add --no-cache maven && \
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 COPY --from=builder /build/dashboard-service/target/dashboard-service.jar .
+COPY --from=builder /build/dashboard-service/entrypoint.sh .
+RUN chmod +x entrypoint.sh
 EXPOSE 8084
-CMD ["java", "-Dspring.profiles.active=docker", "-jar", "dashboard-service.jar"]
+ENTRYPOINT ["./entrypoint.sh"]
