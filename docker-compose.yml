@@ -130,6 +130,22 @@ services:
     networks:
       - mhsa-network
 
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set minio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb minio/mhsa-media --ignore-existing;
+      /usr/bin/mc version enable minio/mhsa-media;
+      echo 'MinIO bucket mhsa-media initialized successfully'
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - mhsa-network
+
   auth-service:
     build:
       context: .
@@ -177,8 +193,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      minio:
-        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
       interval: 30s
