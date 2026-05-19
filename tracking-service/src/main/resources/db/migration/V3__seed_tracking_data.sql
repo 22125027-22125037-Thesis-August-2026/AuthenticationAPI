@@ -11,7 +11,7 @@ VALUES
     ('3a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5a', 'e1d0add5-b9c8-57b5-36e6-059991832f17', 'Ket qua thi va phan tu', 'Hom nay nhan ket qua thi mon Toan - Diem 8.5! Cam thay thich thu va tu hao. Dieu nay khuyen khich toi tiep tuc hoc tap cham chi.', 'HAPPY', 85, CURRENT_DATE - 3, now(), now()),
     ('3a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5b', 'e1d0add5-b9c8-57b5-36e6-059991832f17', 'Ngay bao hang', 'Hom nay hoc tot, hoan thanh cac bai tap. Cam thay vua met vua thoa man voi tuan.', 'HAPPY', 80, CURRENT_DATE - 2, now(), now()),
     ('3a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5c', 'e1d0add5-b9c8-57b5-36e6-059991832f17', 'Ngay cuoi tuan', 'Cuoi cung tuan cung qua roi. Toi cam thay hai long voi nhung gi da hoan thanh. Ke hoach tuan sau: on tap toan, viet bai luan tieng Anh.', 'HAPPY', 78, CURRENT_DATE - 1, now(), now()),
-    ('3a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d', 'e1d0add5-b9c8-57b5-36e6-059991832f17', 'Hom nay', 'Mot ngay binh thuong voi cac hoat dong hoc tap. Chuan bi tot cho tuan toi.', 'HAPPY', 75, CURRENT_DATE, now(), now());
+    ('3a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c60', 'e1d0add5-b9c8-57b5-36e6-059991832f17', 'Hom nay', 'Mot ngay binh thuong voi cac hoat dong hoc tap. Chuan bi tot cho tuan toi.', 'HAPPY', 75, CURRENT_DATE, now(), now());
 
 -- Food logs (1 per day x 7 days)
 INSERT INTO food_logs (food_id, profile_id, water_glasses, food_description, satiety_level, entry_date, created_at, updated_at)
