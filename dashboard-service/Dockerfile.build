@@ -8,6 +8,7 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 COPY --from=builder /build/dashboard-service/target/dashboard-service.jar .
 COPY --from=builder /build/dashboard-service/entrypoint.sh .
-RUN chmod +x entrypoint.sh
+RUN sed -i 's/\r$//' entrypoint.sh \
+    && chmod +x entrypoint.sh
 EXPOSE 8084
 ENTRYPOINT ["./entrypoint.sh"]
