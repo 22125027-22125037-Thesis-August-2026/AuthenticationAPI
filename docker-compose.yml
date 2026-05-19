@@ -42,6 +42,28 @@ services:
     networks:
       - mhsa-network
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_ENHANCED_PASSWORD_FIELD: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      postgres-ai:
+        condition: service_healthy
+      postgres-tracking:
+        condition: service_healthy
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - mhsa-network
+
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -237,7 +259,7 @@ services:
       MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
       SERVICE_TRACKING_URL: http://tracking-service:8083
       SERVICE_AUTH_URL: http://auth-service:8081
-      GEMINI_API_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
+      GEMINI_API_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
@@ -356,6 +378,7 @@ volumes:
   postgres-ai-data:
   postgres-tracking-data:
   minio-data:
+  pgadmin-data:
 
 networks:
   mhsa-network:
