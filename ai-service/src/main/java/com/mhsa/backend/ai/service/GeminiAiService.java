@@ -221,33 +221,20 @@ public class GeminiAiService {
         Map<String, Object> request = new HashMap<>();
 
         Map<String, Object> systemInstruction = new HashMap<>();
-        Map<String, String> parts = new HashMap<>();
-        parts.put("text", systemPrompt);
-        systemInstruction.put("parts", parts);
-        request.put("system_instruction", systemInstruction);
+        systemInstruction.put("parts", List.of(Map.of("text", systemPrompt)));
+        request.put("systemInstruction", systemInstruction);
 
         List<Map<String, Object>> contents = List.of(
                 Map.of(
                         "role", "user",
-                        "parts", List.of(
-                                Map.of("text", megaPrompt)
-                        )
+                        "parts", List.of(Map.of("text", megaPrompt))
                 )
         );
         request.put("contents", contents);
 
-        List<Map<String, String>> safetySettings = List.of(
-                Map.of("category", "HARM_CATEGORY_HATE_SPEECH", "threshold", "BLOCK_ONLY_HIGH"),
-                Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_ONLY_HIGH"),
-                Map.of("category", "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold", "BLOCK_ONLY_HIGH"),
-                Map.of("category", "HARM_CATEGORY_HARASSMENT", "threshold", "BLOCK_ONLY_HIGH")
-        );
-        request.put("safetySettings", safetySettings);
-
         Map<String, Object> generationConfig = new HashMap<>();
         generationConfig.put("temperature", 0.7);
-        generationConfig.put("response_mime_type", "application/json");
-        request.put("generation_config", generationConfig);
+        request.put("generationConfig", generationConfig);
 
         return request;
     }
