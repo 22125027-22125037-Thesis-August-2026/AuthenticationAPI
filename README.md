@@ -201,6 +201,7 @@ docker-compose restart auth-service
 | **PostgreSQL (Auth)** | 5432 | `localhost:5432` | User: postgres, Pass: postgres |
 | **PostgreSQL (AI)** | 5433 | `localhost:5433` | User: postgres, Pass: postgres |
 | **PostgreSQL (Tracking)** | 5434 | `localhost:5434` | User: postgres, Pass: postgres |
+| **pgAdmin** | 5050 | `http://localhost:5050` | Email: admin@example.com, Pass: admin |
 | **Redis** | 6379 | `localhost:6379` | N/A |
 | **RabbitMQ** | 5672 | `localhost:5672` | User: guest, Pass: guest |
 | **RabbitMQ Management** | 15672 | `http://localhost:15672` | User: guest, Pass: guest |
@@ -209,21 +210,80 @@ docker-compose restart auth-service
 
 ### Admin Access Examples
 
+#### **pgAdmin (Web-based PostgreSQL Management)**
+```
+URL: http://localhost:5050
+Email: admin@example.com
+Password: admin
+
+Steps:
+1. Open http://localhost:5050 in browser
+2. Login with credentials above
+3. Register servers:
+   - Right-click "Servers" → Register → Server
+   - Name: auth_db
+   - Host: postgres-auth
+   - Port: 5432
+   - Username: postgres
+   - Password: postgres
+   
+4. Repeat for:
+   - postgres-ai (Host: postgres-ai)
+   - postgres-tracking (Host: postgres-tracking)
+```
+
+#### **PostgreSQL CLI (Command Line)**
 ```bash
-# PostgreSQL CLI
+# Auth database
 docker exec -it postgres-auth psql -U postgres -d auth_db
 
-# View RabbitMQ queues
-# Open: http://localhost:15672
-# Login: guest / guest
+# AI database
+docker exec -it postgres-ai psql -U postgres -d ai_db
 
-# Access MinIO file storage
-# Open: http://localhost:9001
-# Login: minioadmin / minioadmin
+# Tracking database
+docker exec -it postgres-tracking psql -U postgres -d tracking_db
 
-# View service logs
+# Useful commands:
+# \dt                          -- List all tables
+# \l                           -- List all databases
+# SELECT * FROM profiles;      -- View profiles
+# SELECT * FROM mood_logs;     -- View mood logs
+# \d profiles                  -- Show table structure
+# \q                           -- Exit
+```
+
+#### **RabbitMQ Management**
+```
+URL: http://localhost:15672
+Username: guest
+Password: guest
+
+Features:
+- View message queues
+- Monitor exchange traffic
+- Check connection status
+- Manage permissions
+```
+
+#### **MinIO File Storage**
+```
+URL: http://localhost:9001
+Username: minioadmin
+Password: minioadmin
+
+Features:
+- Upload/download files
+- Browse buckets
+- Manage access policies
+- View file metadata
+```
+
+#### **View Service Logs**
+```bash
 docker logs -f auth-service
 docker logs -f tracking-service
+docker logs -f ai-service
+docker logs -f dashboard-service
 ```
 
 ---
@@ -340,6 +400,49 @@ curl -X POST http://localhost:8080/api/v1/tracking/mood \
 ---
 
 ## 🗄️ Database Access
+
+### Access Databases via pgAdmin (Web UI) 🌐
+
+**pgAdmin** is a web-based tool for managing PostgreSQL databases - the easiest way!
+
+```
+1. Open: http://localhost:5050
+2. Login:
+   Email: admin@example.com
+   Password: admin
+
+3. Register Servers:
+   - Right-click "Servers" → Register → Server
+   
+   For auth_db:
+   - Name: auth_db
+   - Host: postgres-auth
+   - Port: 5432
+   - Username: postgres
+   - Password: postgres
+   
+   For ai_db:
+   - Name: ai_db
+   - Host: postgres-ai
+   - Port: 5432
+   - Username: postgres
+   - Password: postgres
+   
+   For tracking_db:
+   - Name: tracking_db
+   - Host: postgres-tracking
+   - Port: 5432
+   - Username: postgres
+   - Password: postgres
+
+4. Features:
+   ✅ Browse tables visually
+   ✅ Run SQL queries
+   ✅ View table data
+   ✅ Create/modify tables
+   ✅ Export data
+   ✅ View indexes and constraints
+```
 
 ### View Logs from Services
 

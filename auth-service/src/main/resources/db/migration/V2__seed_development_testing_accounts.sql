@@ -145,3 +145,60 @@ SELECT
     now() - ((150 - n) || ' days')::interval
 FROM generate_series(1, 30) AS s(n)
 ON CONFLICT (profile_id) DO NOTHING;
+
+-- TEEN profile details (school, emergency contact)
+INSERT INTO teen_profile (profile_id, school, emergency_contact)
+SELECT
+    (regexp_replace(md5('dev-profile-teen-' || (n)::text), '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid,
+    'High School ' || (n)::text,
+    'Parent Contact ' || (n)::text
+FROM generate_series(1, 30) AS s(n)
+ON CONFLICT (profile_id) DO NOTHING;
+
+-- Enhanced profile details for teen001 (Anh Nguyen)
+UPDATE teen_profile
+SET school = 'Trường THPT Nguyễn Tất Thành, Quận 1, TP.HCM',
+    emergency_contact = 'Mẹ: Nguyễn Thị An | Số điện thoại: 0912.345.678'
+WHERE profile_id = 'e1d0add5-b9c8-57b5-36e6-059991832f17'::uuid;
+
+-- THERAPIST profile details (specialization, bio, experience, fee)
+INSERT INTO therapist_profile (profile_id, specialization, bio, years_of_experience, consultation_fee, is_verified)
+SELECT
+    (regexp_replace(md5('dev-profile-therapist-' || (n)::text), '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid,
+    'Child Psychology',
+    'Experienced therapist',
+    ((n % 20) + 5)::integer,
+    (50.0)::numeric(12, 2),
+    TRUE
+FROM generate_series(1, 30) AS s(n)
+ON CONFLICT (profile_id) DO NOTHING;
+
+-- DATA ACCESS GRANTS: Parents can view teen diaries/data
+INSERT INTO data_access_grants (grant_id, granter_profile_id, grantee_profile_id, status, access_scope, granted_at, expires_at)
+SELECT
+    (regexp_replace(md5('dev-grant-teen-' || t.n::text || '-parent-' || p.n::text), '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid,
+    (regexp_replace(md5('dev-profile-teen-' || t.n::text), '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid,
+    (regexp_replace(md5('dev-profile-parent-' || p.n::text), '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid,
+    'ACTIVE',
+    'READ_ALL',
+    now() - ((60 - (t.n + p.n)) || ' days')::interval,
+    null
+FROM generate_series(1, 30) AS t(n)
+CROSS JOIN generate_series(1, 2) AS p(n)
+WHERE (t.n + p.n) % 3 = 0
+ON CONFLICT DO NOTHING;
+
+-- DATA ACCESS GRANTS: Therapists can view assigned teen data
+INSERT INTO data_access_grants (grant_id, granter_profile_id, grantee_profile_id, status, access_scope, granted_at, expires_at)
+SELECT
+    (regexp_replace(md5('dev-grant-teen-' || t.n::text || '-therapist-' || th.n::text), '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid,
+    (regexp_replace(md5('dev-profile-teen-' || t.n::text), '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid,
+    (regexp_replace(md5('dev-profile-therapist-' || th.n::text), '(.{8})(.{4})(.{4})(.{4})(.{12})', '\1-\2-\3-\4-\5'))::uuid,
+    'ACTIVE',
+    'READ_ALL',
+    now() - ((45 - (t.n + th.n)) || ' days')::interval,
+    null
+FROM generate_series(1, 30) AS t(n)
+CROSS JOIN generate_series(1, 3) AS th(n)
+WHERE (t.n + th.n) % 4 = 0
+ON CONFLICT DO NOTHING;
