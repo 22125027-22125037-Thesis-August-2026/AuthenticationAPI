@@ -6,7 +6,8 @@ WORKDIR /app
 # Copy the built JAR and entrypoint script from Maven
 COPY target/auth-service.jar app.jar
 COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh \
+    && chmod +x /app/entrypoint.sh
 
 EXPOSE 8081
 
