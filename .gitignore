@@ -67,3 +67,4 @@ application-local.yml
 target/
 .idea/
 *.iml
+.claude/settings.local.json
