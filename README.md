@@ -1,11 +1,54 @@
 # 🏥 Mental Health Support System (MHSA) - Backend
 
 This is the Backend API for the **Mental Health Support Application** (Thesis Project).
-Built with **Java Spring Boot 4.0** using a **Microservices Architecture**, powered by **PostgreSQL**, **Redis**, **RabbitMQ**, and **Docker Compose**.
+Built with **Java Spring Boot 4.0** using a **Microservices Architecture**, powered by **PostgreSQL**, **Redis**, **RabbitMQ**, **MinIO**, and **Docker Compose**.
+
+---
+
+## 📋 Table of Contents
+
+1. [Quick Start](#quick-start)
+2. [Architecture Overview](#architecture-overview)
+3. [Prerequisites](#prerequisites)
+4. [Setup & Deployment](#setup--deployment)
+5. [Services & Ports](#services--ports)
+6. [API Documentation](#api-documentation)
+7. [Database Access](#database-access)
+8. [Frontend Integration](#frontend-integration)
+9. [Troubleshooting](#troubleshooting)
+10. [Project Structure](#project-structure)
+
+---
+
+## 🚀 Quick Start
+
+### One Command to Start Everything
+
+```powershell
+cd d:\StudyFiles\Thesis\thesis-backend
+docker-compose up -d
+```
+
+**Wait 2-3 minutes** for all services to become healthy, then verify:
+
+```powershell
+docker-compose ps
+# All 11 containers should show "healthy" status
+```
+
+**Test the API:**
+```bash
+curl http://localhost:8080/health
+# Response: healthy
+```
+
+That's it! The backend is fully operational. No need to run Maven, build JARs, or start services manually.
 
 ---
 
 ## 🏗️ Architecture Overview
+
+### System Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -37,11 +80,18 @@ Infrastructure (5):
 └── Nginx                       (Reverse proxy gateway)
 ```
 
+### Core Architecture Principles
+
+- **Microservices Pattern:** Independent services with separate databases
+- **API Gateway Pattern:** Nginx routes all requests (single entry point)
+- **Backend For Frontend (BFF):** Dashboard service aggregates data
+- **Event-Driven:** RabbitMQ for async service communication
+- **Caching:** Redis for performance optimization
+- **Database per Service:** Each microservice owns its PostgreSQL instance
+
 ---
 
 ## 🛠 Prerequisites
-
-Ensure you have the following installed:
 
 | Requirement | Version | Download |
 |---|---|---|
@@ -52,116 +102,198 @@ Ensure you have the following installed:
 
 ---
 
-## 🚀 Quick Start
+## 📦 Setup & Deployment
 
-### Step 1: Start All Services (Docker Compose)
+### Development Environment (Local Docker)
+
+#### Step 1: Clone & Navigate
+
+```bash
+git clone <repo-url>
+cd d:\StudyFiles\Thesis\thesis-backend
+```
+
+#### Step 2: Start All Services
 
 ```powershell
-cd d:\StudyFiles\Thesis\thesis-backend
 docker-compose up -d
 ```
 
-This starts **11 containers**:
-- ✅ 4 Microservices (auth, ai, tracking, dashboard)
-- ✅ 3 PostgreSQL databases (auth_db, ai_db, tracking_db)
-- ✅ Redis, RabbitMQ, MinIO
-- ✅ Nginx gateway
+This command:
+- Builds JAR files (Maven)
+- Creates Docker images
+- Starts **11 containers** (4 microservices + 7 infrastructure)
+- Runs health checks automatically
 
-**Verify all services are healthy:**
+#### Step 3: Verify Deployment
+
 ```powershell
+# Check container status
 docker-compose ps
-# All should show "healthy" status
+
+# View service logs
+docker-compose logs -f auth-service
+docker-compose logs -f tracking-service
 ```
 
-### Step 2: Access the Backend
-
-| Service | URL | Purpose |
-|---------|-----|---------|
-| **API Gateway (Nginx)** | http://localhost:8080 | Main entry point for frontend |
-| **Auth Service** | http://localhost:8081 | User authentication, profiles |
-| **AI Service** | http://localhost:8082 | AI chat endpoints |
-| **Tracking Service** | http://localhost:8083 | Health tracking data |
-| **Dashboard Service** | http://localhost:8084 | Aggregated dashboard data |
-
-### Step 3: Test API Health
+#### Step 4: Test Health Endpoints
 
 ```bash
-# Via Nginx Gateway (recommended for frontend)
+# Via Nginx Gateway (recommended)
 curl http://localhost:8080/health
 
-# Individual service health checks
-curl http://localhost:8081/actuator/health      # auth-service
-curl http://localhost:8082/actuator/health      # ai-service
-curl http://localhost:8083/actuator/health      # tracking-service
-curl http://localhost:8084/api/v1/dashboard/health  # dashboard-service
+# Individual services
+curl http://localhost:8081/actuator/health      # auth
+curl http://localhost:8082/actuator/health      # ai
+curl http://localhost:8083/actuator/health      # tracking
+curl http://localhost:8084/api/v1/dashboard/health  # dashboard
+```
+
+### Production Deployment (Cloud VPS)
+
+See **DEPLOYMENT.md** for:
+- Ubuntu VPS setup with Docker
+- Nginx reverse proxy with SSL
+- Let's Encrypt SSL certificates
+- Automated backup strategy
+- Kubernetes deployment manifests
+
+### Common Docker Commands
+
+```powershell
+# Start services
+docker-compose up -d
+
+# Stop services
+docker-compose down
+
+# Stop and remove all data (⚠️ Careful!)
+docker-compose down -v
+
+# Rebuild after code changes
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f [service-name]
+
+# Restart a single service
+docker-compose restart auth-service
+```
+
+---
+
+## 🔌 Services & Ports
+
+### Microservices
+
+| Service | Port | Purpose | Database |
+|---------|------|---------|----------|
+| **Nginx Gateway** | 8080 | API entry point | N/A |
+| **Auth Service** | 8081 | User auth, profiles, grants | auth_db (5432) |
+| **AI Service** | 8082 | Gemini AI chatbot | ai_db (5433) |
+| **Tracking Service** | 8083 | Health tracking (mood, sleep, food, diary) | tracking_db (5434) |
+| **Dashboard Service** | 8084 | BFF - data aggregation | N/A (stateless) |
+
+### Infrastructure & Admin UIs
+
+| Service | Port | URL | Credentials |
+|---------|------|-----|-------------|
+| **PostgreSQL (Auth)** | 5432 | `localhost:5432` | User: postgres, Pass: postgres |
+| **PostgreSQL (AI)** | 5433 | `localhost:5433` | User: postgres, Pass: postgres |
+| **PostgreSQL (Tracking)** | 5434 | `localhost:5434` | User: postgres, Pass: postgres |
+| **Redis** | 6379 | `localhost:6379` | N/A |
+| **RabbitMQ** | 5672 | `localhost:5672` | User: guest, Pass: guest |
+| **RabbitMQ Management** | 15672 | `http://localhost:15672` | User: guest, Pass: guest |
+| **MinIO API** | 9000 | `localhost:9000` | User: minioadmin, Pass: minioadmin |
+| **MinIO Console** | 9001 | `http://localhost:9001` | User: minioadmin, Pass: minioadmin |
+
+### Admin Access Examples
+
+```bash
+# PostgreSQL CLI
+docker exec -it postgres-auth psql -U postgres -d auth_db
+
+# View RabbitMQ queues
+# Open: http://localhost:15672
+# Login: guest / guest
+
+# Access MinIO file storage
+# Open: http://localhost:9001
+# Login: minioadmin / minioadmin
+
+# View service logs
+docker logs -f auth-service
+docker logs -f tracking-service
 ```
 
 ---
 
 ## 📚 API Documentation
 
+### Base URL
+
+```
+Frontend: http://localhost:8080
+Direct Services: http://localhost:8081-8084
+```
+
+**All examples use the gateway URL** (recommended for frontend).
+
 ### Authentication Flow
 
 ```
-1. Register User (Teen or Therapist)
-   POST /api/v1/auth/register
-   
-2. Login
-   POST /api/v1/auth/login
-   → Returns: { accessToken, refreshToken }
-   
-3. Use Token in all requests
-   Header: Authorization: Bearer <access_token>
+1. POST /api/v1/auth/register → Get tokens
+2. Use access_token in all requests
+3. Header: Authorization: Bearer <access_token>
 ```
 
 ### Main API Endpoints
 
-#### 🔐 Auth Service (8081)
+#### 🔐 Auth Service (Port 8081)
 ```
 POST   /api/v1/auth/register          Register new user (teen/therapist)
 POST   /api/v1/auth/login             Login user
 GET    /api/v1/auth/me                Get current user profile
 PATCH  /api/v1/auth/profile           Update profile
 POST   /api/v1/auth/profile/avatar    Upload avatar
-POST   /api/v1/auth/grants            Share data with other user
-GET    /api/v1/auth/grants            List data sharing grants
 POST   /api/v1/auth/logout            Logout user
+POST   /api/v1/auth/grants            Grant data access to therapist
+GET    /api/v1/auth/grants            List granted access
+GET    /api/v1/auth/grants/received   List received access
 ```
 
-#### 🤖 AI Service (8082)
+#### 🤖 AI Service (Port 8082)
 ```
+POST   /api/v1/ai/sessions            Create chat session
 GET    /api/v1/ai/sessions            List chat sessions
-POST   /api/v1/ai/sessions            Create new chat session
-GET    /api/v1/ai/sessions/{id}       Get session messages
-POST   /api/v1/ai/sessions/{id}/messages   Send message to Gemini AI
+GET    /api/v1/ai/sessions/{id}       Get session with messages
+POST   /api/v1/ai/sessions/{id}/messages   Send message to AI
 ```
 
-#### 📊 Tracking Service (8083)
+#### 📊 Tracking Service (Port 8083)
 ```
-GET    /api/v1/tracking/diary         List diary entries
-POST   /api/v1/tracking/diary         Create diary entry
-GET    /api/v1/tracking/mood          List mood logs
 POST   /api/v1/tracking/mood          Log mood
-GET    /api/v1/tracking/sleep         List sleep logs
+GET    /api/v1/tracking/mood          List mood logs
 POST   /api/v1/tracking/sleep         Log sleep
-GET    /api/v1/tracking/food          List food logs
+GET    /api/v1/tracking/sleep         List sleep logs
 POST   /api/v1/tracking/food          Log food
-GET    /api/v1/tracking/context       Get aggregated tracking data
+GET    /api/v1/tracking/food          List food logs
+POST   /api/v1/tracking/diary         Create diary entry
+GET    /api/v1/tracking/diary         List diary entries
+GET    /api/v1/tracking/context       Get aggregated context
 ```
 
-#### 📈 Dashboard Service (8084)
+#### 📈 Dashboard Service (Port 8084)
 ```
-GET    /api/v1/dashboard/summary      Get dashboard summary
-GET    /api/v1/dashboard/context/{id} Get user context (mood, sleep, food, diary)
-GET    /api/v1/dashboard/health       Health check endpoint
+GET    /api/v1/dashboard/summary      Aggregated summary
+GET    /api/v1/dashboard/context/{id} Get user context
+GET    /api/v1/dashboard/health       Health check
 ```
 
-### Use via API Gateway (Recommended for Frontend)
-```
-# Instead of: http://localhost:8081/api/v1/auth/...
-# Use:        http://localhost:8080/api/v1/auth/...
+### Example API Call
 
-# All endpoints go through Nginx gateway at port 8080
+```bash
+# Register user
 curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
@@ -169,61 +301,275 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
     "password": "password123",
     "fullName": "John Doe",
     "role": "TEEN",
-    "accountType": "TEEN"
+    "accountType": "TEEN",
+    "school": "High School Name"
+  }'
+
+# Response:
+# {
+#   "userId": "uuid",
+#   "profileId": "uuid",
+#   "email": "user@example.com",
+#   "fullName": "John Doe",
+#   "role": "TEEN",
+#   "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+#   "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+#   "expiresIn": 3600
+# }
+```
+
+### Log Mood Example
+
+```bash
+# Get token first
+export TOKEN="<accessToken>"
+
+# Log mood
+curl -X POST http://localhost:8080/api/v1/tracking/mood \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "moodScore": 7,
+    "notes": "Feeling better today",
+    "emotionTags": ["happy", "energetic"]
   }'
 ```
+
+**Full API Documentation:** See [API.md](API.md)
 
 ---
 
 ## 🗄️ Database Access
 
-### Using Docker
+### View Logs from Services
+
 ```powershell
-# View logs from a specific service
+# Specific service logs
 docker logs auth-service
 docker logs -f tracking-service  # Follow mode
 
-# Access PostgreSQL directly
+# View all logs
+docker-compose logs -f
+```
+
+### Access PostgreSQL Directly
+
+```powershell
+# Auth database
 docker exec -it postgres-auth psql -U postgres -d auth_db
 
-# View RabbitMQ Management UI
-http://localhost:15672
-Username: guest
-Password: guest
+# AI database
+docker exec -it postgres-ai psql -U postgres -d ai_db
 
-# View MinIO Console
-http://localhost:9001
-Username: minioadmin
-Password: minioadmin
+# Tracking database
+docker exec -it postgres-tracking psql -U postgres -d tracking_db
+
+# Example queries:
+# \dt                          -- List tables
+# SELECT * FROM profiles;      -- View profiles
+# SELECT * FROM mood_logs;     -- View mood logs
+# \q                           -- Exit
 ```
+
+### Database Schema Overview
+
+**Auth Service Database (auth_db):**
+- `users` - User accounts
+- `profiles` - User profiles (TEEN/THERAPIST)
+- `data_access_grants` - Sharing permissions
+
+**AI Service Database (ai_db):**
+- `chat_sessions` - Conversation sessions
+- `chat_messages` - Messages in sessions
+
+**Tracking Service Database (tracking_db):**
+- `mood_logs` - Mood entries
+- `sleep_logs` - Sleep tracking
+- `food_logs` - Food intake
+- `diary_entries` - Journal entries
+- `streaks` - Habit streaks
+
+### Data Sharing
+
+The system supports **therapist access to patient data**:
+
+```bash
+# Grant access (patient action)
+POST /api/v1/auth/grants
+{ "granteeProfileId": "therapist-uuid" }
+
+# Therapist can then view
+GET /api/v1/tracking/context/{patientId}?days=7
+```
+
+---
+
+## 🎨 Frontend Integration
+
+### Configuration
+
+```javascript
+// .env or .env.local
+VITE_API_URL=http://localhost:8080
+VITE_API_TIMEOUT=30000
+```
+
+### API Client Setup (Fetch)
+
+```javascript
+const API_BASE = 'http://localhost:8080';
+
+async function apiRequest(endpoint, options = {}) {
+  const token = localStorage.getItem('accessToken');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error(`API Error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// Usage
+const user = await apiRequest('/api/v1/auth/me');
+```
+
+### API Client Setup (Axios)
+
+```javascript
+import axios from 'axios';
+
+const apiClient = axios.create({
+  baseURL: 'http://localhost:8080',
+  timeout: 30000,
+});
+
+// Add token to requests
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('accessToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Handle 401 (expired token)
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('accessToken');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default apiClient;
+```
+
+### Common Frontend Functions
+
+```javascript
+// Authentication
+async function register(userData) {
+  return apiClient.post('/api/v1/auth/register', userData);
+}
+
+async function login(email, password) {
+  const response = await apiClient.post('/api/v1/auth/login', {
+    email,
+    password,
+  });
+  localStorage.setItem('accessToken', response.data.accessToken);
+  return response.data;
+}
+
+async function getCurrentUser() {
+  return apiClient.get('/api/v1/auth/me');
+}
+
+// Health Tracking
+async function logMood(moodData) {
+  return apiClient.post('/api/v1/tracking/mood', moodData);
+}
+
+async function getMoodLogs(days = 7) {
+  return apiClient.get(`/api/v1/tracking/mood?days=${days}`);
+}
+
+// AI Chat
+async function createChatSession() {
+  return apiClient.post('/api/v1/ai/sessions', {
+    title: 'Mental Health Chat',
+  });
+}
+
+async function sendAiMessage(sessionId, userMessage) {
+  return apiClient.post(
+    `/api/v1/ai/sessions/${sessionId}/messages`,
+    { userMessage }
+  );
+}
+
+// Dashboard
+async function getDashboardSummary() {
+  return apiClient.get('/api/v1/dashboard/summary');
+}
+```
+
+**Full Frontend Guide:** See [FRONTEND_GUIDE.md](FRONTEND_GUIDE.md)
 
 ---
 
 ## 🔧 Useful Commands
 
-### Docker Management
+### View Service Status
+
 ```powershell
-# Start all services
-docker-compose up -d
-
-# Stop all services
-docker-compose down
-
-# Stop and remove volumes (⚠️ deletes all data)
-docker-compose down -v
-
-# Rebuild and start (after code changes)
-docker-compose up -d --build
-
-# View service status
+# All containers
 docker-compose ps
 
-# View logs
-docker-compose logs -f [service-name]
-docker-compose logs -f auth-service
+# Specific service
+docker ps | findstr auth-service
+
+# Health details
+docker inspect thesis-backend-auth-service
 ```
 
-### Maven Build (If running services locally without Docker)
+### Manage Services
+
+```powershell
+# Stop all
+docker-compose down
+
+# Stop one service
+docker-compose stop auth-service
+
+# Restart one service
+docker-compose restart auth-service
+
+# View resource usage
+docker stats
+
+# Prune unused images/volumes
+docker system prune
+```
+
+### Build & Compile (Local Development)
+
 ```bash
 # Build all modules
 ./mvnw clean package
@@ -231,124 +577,101 @@ docker-compose logs -f auth-service
 # Build specific module
 ./mvnw clean package -pl auth-service
 
-# Run with Spring Boot
+# Run locally (without Docker)
 ./mvnw spring-boot:run -pl auth-service
 ```
 
----
+### Monitor & Logs
 
-## 📝 Configuration
+```powershell
+# Real-time logs
+docker-compose logs -f
 
-### Docker Compose Environment Variables
-Located in `.env` file (if using) or set in `docker-compose.yml`:
+# Logs for one service
+docker-compose logs -f auth-service
 
-```yaml
-# Database credentials
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
+# Last 100 lines
+docker logs --tail 100 auth-service
 
-# JWT Configuration
-JWT_EXPIRATION_MS=3600000
-JWT_ISSUER=mhsa.backend
-JWT_AUDIENCE=mhsa-api
-
-# Service URLs
-SERVICE_AUTH_URL=http://auth-service:8081
-SERVICE_TRACKING_URL=http://tracking-service:8083
+# Filter by error
+docker-compose logs | findstr ERROR
 ```
-
----
-
-## 🔄 Data Sharing & Access Control
-
-The system supports **data sharing between users**:
-
-### Grant Data Access
-```bash
-POST /api/v1/auth/grants
-{
-  "granteeProfileId": "uuid-of-therapist"
-}
-```
-
-### Check Shared Access
-```bash
-GET /api/v1/auth/grants/{profileId}
-GET /api/v1/auth/grants/{profileId}/received
-```
-
-When a therapist has access, they can view the patient's:
-- Mood logs
-- Sleep logs
-- Food logs
-- Diary entries
-- Aggregated context summary
 
 ---
 
 ## 🚨 Troubleshooting
 
-### All Containers Running but Services Returning 500 Errors
-**Solution:** Wait 30-60 seconds for services to fully initialize their health checks.
+### Containers Running but Services Unhealthy
 
-### Docker Port Already in Use
+**Problem:** All containers are up but health checks fail
+
+**Solution:**
+1. Wait 30-60 seconds (health checks take time on first start)
+2. Check logs: `docker logs auth-service`
+3. Verify database migrations: `docker logs postgres-auth | grep migration`
+
+### Port Already in Use
+
 ```powershell
-# Find and kill process using port
+# Find process using port 8080
 netstat -ano | findstr :8080
+
+# Kill process
 taskkill /PID <PID> /F
 
 # Or change port in docker-compose.yml
 ```
 
 ### Database Connection Errors
+
 ```powershell
-# Verify containers are running
-docker-compose ps
-
-# Check logs
-docker logs postgres-auth
-docker logs auth-service
-
 # Reset database
 docker-compose down -v
 docker-compose up -d
+
+# Check database logs
+docker logs postgres-auth
+docker logs postgres-tracking
+
+# Verify database is running
+docker exec postgres-auth psql -U postgres -c "\l"
 ```
 
 ### Service Health Check Failing
+
 ```powershell
-# Check if service is actually started
-docker logs dashboard-service | tail -50
+# View detailed logs
+docker logs -f auth-service | head -50
+
+# Check if migrations ran
+docker logs postgres-auth | grep "migration"
 
 # Rebuild and restart
 docker-compose down
 docker-compose up -d --build
 ```
 
----
+### Out of Disk Space
 
-## 📦 Current Features
+```powershell
+# Clean up Docker
+docker system prune -a
 
-### ✅ Implemented
-- **User Profiles**: Teen & Therapist profiles with role-based access
-- **Authentication**: JWT-based authentication with refresh tokens
-- **AI Chat**: Integration with Google Gemini API for mental health chatbot
-- **Health Tracking**: Mood, sleep, food, and diary entry logging
-- **Data Aggregation**: Dashboard that aggregates data from all services
-- **File Storage**: Avatar uploads via MinIO
-- **Event Messaging**: RabbitMQ for async event processing
-- **Caching**: Redis for performance optimization
-- **API Gateway**: Nginx reverse proxy with unified entry point
-- **Data Sharing**: Users can grant access to their health data to therapists
+# Remove volumes (⚠️ Deletes all data)
+docker-compose down -v
+docker-compose up -d
+```
 
-### ❌ Not Implemented (Future Features)
-- Therapist directory/search
-- Patient-Therapist matching system
-- Appointment/booking system
-- Real-time messaging between users
-- Video consultation
-- Social feed / community features
-- Reviews and ratings
-- Advanced analytics
+### Network Issues Between Services
+
+```powershell
+# Check Docker network
+docker network ls
+docker network inspect thesis-backend_mhsa-network
+
+# Test connectivity inside container
+docker exec auth-service curl http://tracking-service:8083/actuator/health
+```
 
 ---
 
@@ -357,64 +680,119 @@ docker-compose up -d --build
 ```
 thesis-backend/
 ├── auth-service/              Microservice - User auth & profiles
+│   ├── src/main/java/
+│   ├── src/main/resources/
+│   │   ├── application.yml
+│   │   └── db/migration/      Database migrations
+│   ├── pom.xml
+│   └── Dockerfile
+│
 ├── ai-service/                Microservice - AI chatbot
 ├── tracking-service/          Microservice - Health tracking
 ├── dashboard-service/         Microservice - BFF aggregator
+│
 ├── shared-jwt/                Shared library - JWT utilities
 ├── shared-contracts/          Shared library - DTOs
+│
 ├── nginx/                     API Gateway configuration
+│   ├── nginx.conf
+│   └── Dockerfile
+│
 ├── docker-compose.yml         Container orchestration
 ├── pom.xml                    Maven parent POM
-├── README.md                  This file
-└── .github/
-    └── copilot-instructions-backend.md
+├── README.md                  This file (comprehensive guide)
+├── ARCHITECTURE.md            System architecture details
+├── API.md                     Full API reference
+├── DEPLOYMENT.md              Production deployment guide
+└── FRONTEND_GUIDE.md          Frontend integration
 ```
 
 ---
 
-## 🤝 Frontend Integration
+## 📋 Microservices Overview
 
-### Using Nginx Gateway (Recommended)
-```javascript
-// Vue.js / React example
-const API_BASE = "http://localhost:8080";
+### Auth Service (8081)
+- **Role:** User authentication, profile management, data sharing
+- **Database:** PostgreSQL (auth_db)
+- **Key Features:**
+  - JWT token generation
+  - Role-based access control (TEEN/THERAPIST)
+  - Avatar upload (MinIO)
+  - Data access grants
 
-// All APIs go through gateway
-async function register(userData) {
-  return fetch(`${API_BASE}/api/v1/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userData)
-  });
-}
+### AI Service (8082)
+- **Role:** Mental health chatbot using Google Gemini API
+- **Database:** PostgreSQL (ai_db)
+- **Key Features:**
+  - Chat session management
+  - Gemini API integration
+  - Message history
+  - Event publishing
 
-async function getTrackingData(profileId) {
-  return fetch(
-    `${API_BASE}/api/v1/dashboard/context/${profileId}?days=7`,
-    {
-      headers: { 'Authorization': `Bearer ${accessToken}` }
-    }
-  );
-}
-```
+### Tracking Service (8083)
+- **Role:** Health data tracking
+- **Database:** PostgreSQL (tracking_db)
+- **Cache:** Redis
+- **Key Features:**
+  - Mood, sleep, food, diary logging
+  - Streak tracking
+  - Context aggregation
+  - Data access control
 
-### Docker Network (If Frontend Also in Docker)
-```javascript
-// Use container DNS names
-const API_BASE = "http://nginx:8080";  // or http://dashboard-service:8084
-```
+### Dashboard Service (8084)
+- **Role:** Backend For Frontend (BFF)
+- **Database:** None (stateless)
+- **Key Features:**
+  - Parallel data aggregation
+  - Health checks
+  - Request orchestration
 
 ---
 
-## 📞 Support
+## 🔄 Key Features
+
+### ✅ Implemented
+- User profiles (Teen & Therapist)
+- JWT authentication with refresh tokens
+- AI chat with Google Gemini
+- Health tracking (mood, sleep, food, diary)
+- Data aggregation dashboard
+- File storage (MinIO)
+- Async messaging (RabbitMQ)
+- Caching layer (Redis)
+- API Gateway (Nginx)
+- Data sharing (therapist access)
+- Role-based access control
+
+### ❌ Future Features
+- Therapist directory
+- Patient-therapist matching
+- Appointment booking
+- Real-time messaging
+- Video consultation
+- Social features
+- Advanced analytics
+
+---
+
+## 🤝 Support
 
 For issues or questions:
-- Check the **Troubleshooting** section above
-- Review `docker-compose logs` for error messages
-- Verify all containers are healthy: `docker-compose ps`
+1. Check the **Troubleshooting** section above
+2. Review `docker-compose logs` for error messages
+3. Verify all containers are healthy: `docker-compose ps`
+4. Check individual service logs: `docker logs [service-name]`
 
 ---
 
 ## 📄 License
 
-This project is part of a Thesis.
+This project is part of a Thesis for ACS - HCMUS.
+
+---
+
+## 📞 Contact
+
+For technical support or contributions, contact the development team.
+
+**Last Updated:** 2026-05-19
