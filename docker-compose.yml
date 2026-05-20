@@ -51,7 +51,7 @@ services:
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_ENHANCED_PASSWORD_FIELD: "False"
     ports:
-      - "5050:80"
+      - "5051:80"
     depends_on:
       postgres-auth:
         condition: service_healthy
@@ -68,7 +68,7 @@ services:
     image: redis:7-alpine
     container_name: redis
     ports:
-      - "6379:6379"
+      - "6371:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -84,8 +84,8 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     ports:
-      - "5678:5672"
-      - "15678:15672"
+      - "5671:5672"
+      - "15671:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -102,7 +102,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5438:5432"
+      - "5437:5432"
     volumes:
       - postgres-ai-data:/var/lib/postgresql/data
     healthcheck:
@@ -121,7 +121,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5439:5432"
+      - "5434:5432"
     volumes:
       - postgres-tracking-data:/var/lib/postgresql/data
     healthcheck:
@@ -264,7 +264,7 @@ services:
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
-      - "8085:8082"
+      - "8087:8082"
     depends_on:
       postgres-ai:
         condition: service_healthy
@@ -318,7 +318,7 @@ services:
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
-      - "8086:8083"
+      - "8084:8083"
     depends_on:
       postgres-tracking:
         condition: service_healthy
@@ -356,7 +356,7 @@ services:
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
-      - "8087:8084"
+      - "8083:8084"
     depends_on:
       auth-service:
         condition: service_healthy
