@@ -235,7 +235,7 @@ services:
     env_file:
       - .env
     environment:
-      SERVER_PORT: 8082
+      SERVER_PORT: 8087
       SPRING_APPLICATION_NAME: ai-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-ai:5432/ai_db
       SPRING_DATASOURCE_USERNAME: postgres
@@ -258,14 +258,14 @@ services:
       MHSA_APP_JWTSIGNINGKID: mhsa.app.jwtSigningKid
       MHSA_APP_JWTPRIVATEKEY: ${JWT_PRIVATE_KEY}
       MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
-      SERVICE_TRACKING_URL: http://tracking-service:8083
+      SERVICE_TRACKING_URL: http://tracking-service:8084
       SERVICE_AUTH_URL: http://auth-service:8081
       GEMINI_API_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
-      - "8087:8082"
+      - "8087:8087"
     depends_on:
       postgres-ai:
         condition: service_healthy
@@ -276,7 +276,7 @@ services:
       tracking-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8087/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -292,7 +292,7 @@ services:
     env_file:
       - .env
     environment:
-      SERVER_PORT: 8083
+      SERVER_PORT: 8084
       SPRING_APPLICATION_NAME: tracking-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-tracking:5432/tracking_db
       SPRING_DATASOURCE_USERNAME: postgres
@@ -319,7 +319,7 @@ services:
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
-      - "8084:8083"
+      - "8084:8084"
     depends_on:
       postgres-tracking:
         condition: service_healthy
@@ -330,7 +330,7 @@ services:
       auth-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -346,7 +346,7 @@ services:
     env_file:
       - .env
     environment:
-      SERVER_PORT: 8084
+      SERVER_PORT: 8083
       SPRING_APPLICATION_NAME: dashboard-service
       MHSA_APP_JWTEXPIRATIONMS: 3600000
       MHSA_APP_JWTISSUER: mhsa.backend
@@ -357,7 +357,7 @@ services:
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
-      - "8083:8084"
+      - "8083:8083"
     depends_on:
       auth-service:
         condition: service_healthy
@@ -366,7 +366,7 @@ services:
       ai-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/api/v1/dashboard/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/api/v1/dashboard/health"]
       interval: 30s
       timeout: 10s
       retries: 5
