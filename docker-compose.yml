@@ -22,6 +22,7 @@ services:
       retries: 3
     networks:
       - mhsa-network
+      - umatter-shared
 
   postgres-auth:
     image: postgres:16-alpine
@@ -383,3 +384,5 @@ volumes:
 networks:
   mhsa-network:
     driver: bridge
+  umatter-shared:
+    external: true
