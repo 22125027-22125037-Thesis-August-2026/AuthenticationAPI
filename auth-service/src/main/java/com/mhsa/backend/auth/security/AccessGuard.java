@@ -49,6 +49,16 @@ public class AccessGuard {
         return dataAccessGrantService.hasDelegatedAccess(targetProfileId, principal.profileId());
     }
 
+    /**
+     * Returns true if the authenticated caller is an ADMIN. Reads the role straight
+     * off the JWT principal so it does not depend on UserDetails being resolvable.
+     */
+    public boolean isAdmin(Authentication authentication) {
+        return authentication != null
+                && authentication.getPrincipal() instanceof AuthenticatedUserPrincipal principal
+                && principal.role() == Role.ADMIN;
+    }
+
     public boolean canManageGrants(Authentication authentication, UUID profileId) {
         if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedUserPrincipal principal)) {
             return false;

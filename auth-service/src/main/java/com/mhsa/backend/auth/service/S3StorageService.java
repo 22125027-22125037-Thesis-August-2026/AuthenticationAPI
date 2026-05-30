@@ -54,6 +54,28 @@ public class S3StorageService {
         }
     }
 
+    public String uploadLicenseDocument(String profileId, InputStream fileContent, String filename, String contentType) {
+        String objectKey = String.format("licenses/%s/%s.%s",
+                profileId,
+                UUID.randomUUID(),
+                getFileExtension(filename));
+
+        try {
+            PutObjectRequest putRequest = PutObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(objectKey)
+                    .contentType(contentType)
+                    .build();
+
+            s3Client.putObject(putRequest, software.amazon.awssdk.core.sync.RequestBody.fromInputStream(fileContent, getContentLength(fileContent)));
+            log.info("Uploaded license document: s3://{}/{}", bucket, objectKey);
+            return objectKey;
+        } catch (Exception e) {
+            log.error("Failed to upload license document to S3: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to upload license document", e);
+        }
+    }
+
     public String generatePresignedUrl(String objectKey, long durationSeconds) {
         try (S3Presigner presigner = S3Presigner.builder()
                 .region(software.amazon.awssdk.regions.Region.of(region))
