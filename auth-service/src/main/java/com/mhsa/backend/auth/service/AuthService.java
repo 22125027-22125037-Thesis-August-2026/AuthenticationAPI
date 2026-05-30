@@ -114,16 +114,7 @@ public class AuthService {
         var profile = profileRepository.findByUser_Id(currentUserId).orElse(null);
 
         // 3. Convert sang DTO (KhÃ´ng tráº£ vá» password!)
-        return UserResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phoneNumber(user.getPhoneNumber())
-                .dob(user.getDob())
-                .role(user.getRole().name())
-                .creditsBalance(user.getCreditsBalance())
-                .avatarUrl(profile != null ? profile.getAvatarUrl() : null)
-                .build();
+        return toUserResponse(user, profile);
     }
 
     @Transactional
@@ -149,12 +140,40 @@ public class AuthService {
         if (request.getAvatarUrl() != null) {
             profile.setAvatarUrl(request.getAvatarUrl());
         }
+
+        // Therapist-specific fields are only applied when the profile is a therapist.
+        if (profile instanceof TherapistProfile therapistProfile) {
+            if (request.getSpecialization() != null) {
+                therapistProfile.setSpecialization(request.getSpecialization());
+            }
+            if (request.getBio() != null) {
+                therapistProfile.setBio(request.getBio());
+            }
+            if (request.getYearsOfExperience() != null) {
+                therapistProfile.setYearsOfExperience(request.getYearsOfExperience());
+            }
+            if (request.getConsultationFee() != null) {
+                therapistProfile.setConsultationFee(request.getConsultationFee());
+            }
+            if (request.getLanguages() != null) {
+                therapistProfile.setLanguages(request.getLanguages());
+            }
+        }
+
         if (userDirty) {
             userRepository.save(user);
         }
         profileRepository.save(profile);
 
-        return UserResponse.builder()
+        return toUserResponse(user, profile);
+    }
+
+    /**
+     * Builds the {@link UserResponse} for a user, enriching it with therapist-specific
+     * fields (specialization, license, languages, …) when the profile is a therapist.
+     */
+    private UserResponse toUserResponse(User user, Profile profile) {
+        UserResponse.UserResponseBuilder builder = UserResponse.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
@@ -162,8 +181,47 @@ public class AuthService {
                 .dob(user.getDob())
                 .role(user.getRole().name())
                 .creditsBalance(user.getCreditsBalance())
-                .avatarUrl(profile.getAvatarUrl())
-                .build();
+                .avatarUrl(profile != null ? profile.getAvatarUrl() : null);
+
+        if (profile instanceof TherapistProfile therapist) {
+            builder.specialization(therapist.getSpecialization())
+                    .bio(therapist.getBio())
+                    .yearsOfExperience(therapist.getYearsOfExperience())
+                    .consultationFee(therapist.getConsultationFee())
+                    .languages(therapist.getLanguages())
+                    .licenseNumber(therapist.getLicenseNumber())
+                    .licenseAuthority(therapist.getLicenseAuthority())
+                    .licenseExpiresAt(therapist.getLicenseExpiresAt())
+                    .licenseStatus(therapist.getLicenseStatus() != null
+                            ? therapist.getLicenseStatus().name()
+                            : null);
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * Verifies the supplied current password and replaces it with the new one.
+     * Throws {@link IllegalArgumentException} if the current password does not match
+     * so the controller can map it to a 400 response.
+     */
+    @Transactional
+    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+        var user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getPassword() == null || !passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+        if (newPassword == null || newPassword.length() < 8) {
+            throw new IllegalArgumentException("New password must be at least 8 characters long");
+        }
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new IllegalArgumentException("New password must differ from the current password");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 
     private Profile buildProfile(User user, RegisterRequest request) {
@@ -184,7 +242,11 @@ public class AuthService {
             profile.setBio(request.getBio());
             profile.setYearsOfExperience(request.getYearsOfExperience());
             profile.setConsultationFee(request.getConsultationFee());
-            profile.setIsVerified(Boolean.TRUE.equals(request.getVerified()));
+            boolean verified = Boolean.TRUE.equals(request.getVerified());
+            profile.setIsVerified(verified);
+            profile.setLicenseStatus(verified
+                    ? com.mhsa.backend.auth.model.LicenseStatus.VERIFIED
+                    : com.mhsa.backend.auth.model.LicenseStatus.PENDING_VERIFICATION);
             return profile;
         }
 
