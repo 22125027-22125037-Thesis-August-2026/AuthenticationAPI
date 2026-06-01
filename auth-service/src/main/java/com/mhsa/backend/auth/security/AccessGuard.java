@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 
 import com.mhsa.backend.auth.jwt.AuthenticatedUserPrincipal;
 import com.mhsa.backend.auth.jwt.Role;
+import com.mhsa.backend.auth.model.AssignmentStatus;
+import com.mhsa.backend.auth.repository.TherapistPatientAssignmentRepository;
 import com.mhsa.backend.auth.service.DataAccessGrantService;
 
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class AccessGuard {
 
     private final DataAccessGrantService dataAccessGrantService;
+    private final TherapistPatientAssignmentRepository assignmentRepository;
 
     /**
      * Returns true if the authenticated caller may read tracking data
@@ -47,6 +50,33 @@ public class AccessGuard {
         }
 
         return dataAccessGrantService.hasDelegatedAccess(targetProfileId, principal.profileId());
+    }
+
+    /**
+     * Returns true if the authenticated caller may view the patient profile identified by
+     * {@code targetProfileId}.
+     *
+     * <p>Grants access when {@link #canReadTrackingData} already allows it (ADMIN, the owner, or an
+     * ACTIVE delegated grant), OR when the caller is a therapist with an ACTIVE assignment to that
+     * patient in the local read-model. This widens <em>profile</em> visibility for assigned
+     * therapists without touching {@link #canReadTrackingData}, which still gates tracking/diaries.
+     *
+     * <p><b>Fail-closed:</b> an unauthenticated caller, a caller with no {@code profileId}, or the
+     * absence of an ACTIVE assignment row all result in denial.
+     */
+    public boolean canViewPatientProfile(Authentication authentication, UUID targetProfileId) {
+        if (canReadTrackingData(authentication, targetProfileId)) {
+            return true;
+        }
+
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedUserPrincipal principal)
+                || principal.profileId() == null) {
+            return false;
+        }
+
+        return assignmentRepository.existsByIdTherapistProfileIdAndIdPatientProfileIdAndStatus(
+                principal.profileId(), targetProfileId, AssignmentStatus.ACTIVE);
     }
 
     /**

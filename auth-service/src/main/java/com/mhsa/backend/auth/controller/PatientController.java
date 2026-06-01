@@ -16,8 +16,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Therapist-facing patient directory. Access is restricted to ADMIN, the profile
- * owner, or a caller holding an ACTIVE data-access grant from the patient
- * (the same rule used for reading tracking data).
+ * owner, a caller holding an ACTIVE data-access grant from the patient, or a
+ * therapist with an ACTIVE assignment to the patient in the local read-model.
  */
 @RestController
 @RequestMapping("/api/v1/patients")
@@ -27,7 +27,7 @@ public class PatientController {
     private final PatientDirectoryService patientDirectoryService;
 
     @GetMapping("/{profileId}")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canViewPatientProfile(authentication, #profileId)")
     public ResponseEntity<PatientDetailResponse> getPatient(@PathVariable UUID profileId) {
         return ResponseEntity.ok(patientDirectoryService.getPatientDetail(profileId));
     }
