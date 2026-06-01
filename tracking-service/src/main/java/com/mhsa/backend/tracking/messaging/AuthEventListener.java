@@ -74,14 +74,4 @@ public class AuthEventListener {
             log.error("Error processing user updated event: {}", event, e);
         }
     }
-
-    @RabbitListener(queues = "auth.grant.created")
-    public void onGrantCreated(String event) {
-        try {
-            log.info("Auth grant created event received: {}", event);
-            log.debug("Grant details: {}", event);
-        } catch (Exception e) {
-            log.error("Error processing grant created event: {}", event, e);
-        }
-    }
 }

@@ -42,8 +42,7 @@ public class RabbitMQConfig {
         return new Queue("auth.user.updated", true);
     }
 
-    @Bean
-    public Queue authGrantCreatedQueue() {
-        return new Queue("auth.grant.created", true);
-    }
+    // Grant events are now consumed from dedicated, DLQ-backed queues bound to auth-service's topic
+    // exchange — see GrantMessagingConfig. The shared default-exchange auth.grant.created queue is
+    // no longer used by tracking (it would compete with other consumers for messages).
 }

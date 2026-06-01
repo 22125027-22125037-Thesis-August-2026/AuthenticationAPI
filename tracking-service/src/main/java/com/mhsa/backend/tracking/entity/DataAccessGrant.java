@@ -7,8 +7,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -28,8 +26,10 @@ import lombok.NoArgsConstructor;
 @Builder
 public class DataAccessGrant {
 
+    // Assigned (not generated): the grant_id is authoritative in auth-service. The replica keeps
+    // the same id so events/reconciliation can upsert by it idempotently. Locally-created grants
+    // (legacy /api/v1/tracking/grants path) assign their own id via the mapper.
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "grant_id")
     private UUID grantId;
 
@@ -52,6 +52,11 @@ public class DataAccessGrant {
 
     @Column(name = "expires_at")
     private Instant expiresAt;
+
+    // Out-of-order watermark: the occurredAt of the last applied event. An incoming event is
+    // applied only when its occurredAt >= this value.
+    @Column(name = "last_event_at")
+    private Instant lastEventAt;
 
     @CreationTimestamp
     @Column(name = "created_at")

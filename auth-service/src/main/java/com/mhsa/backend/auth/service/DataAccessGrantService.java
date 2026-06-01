@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.mhsa.backend.auth.dto.DataAccessGrantResponse;
 import com.mhsa.backend.auth.dto.GrantAccessRequest;
 import com.mhsa.backend.auth.dto.GrantStatusResponse;
+import com.mhsa.backend.auth.messaging.GrantChangedEvent;
 import com.mhsa.backend.auth.model.AccessScope;
 import com.mhsa.backend.auth.model.DataAccessGrant;
 import com.mhsa.backend.auth.model.GrantStatus;
@@ -28,6 +30,7 @@ public class DataAccessGrantService {
 
     private final DataAccessGrantRepository grantRepository;
     private final RedisTemplate<String, String> redisTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public DataAccessGrantResponse grantAccess(UUID granterProfileId, GrantAccessRequest request) {
@@ -55,6 +58,9 @@ public class DataAccessGrantService {
         // Invalidate any cached result so the next check hits the DB with fresh data.
         evictCache(granterProfileId, request.getGranteeProfileId());
 
+        // Emit the enriched event; it is only sent to RabbitMQ after this transaction commits.
+        eventPublisher.publishEvent(GrantChangedEvent.of(saved, Instant.now()));
+
         return DataAccessGrantResponse.from(saved);
     }
 
@@ -62,9 +68,12 @@ public class DataAccessGrantService {
     public void revokeAccess(UUID granterProfileId, UUID granteeProfileId) {
         grantRepository
                 .findByGranterProfileIdAndGranteeProfileId(granterProfileId, granteeProfileId)
+                // Only emit when the grant actually leaves ACTIVE, so a no-op revoke stays silent.
+                .filter(grant -> grant.getStatus() == GrantStatus.ACTIVE)
                 .ifPresent(grant -> {
                     grant.setStatus(GrantStatus.REVOKED);
-                    grantRepository.save(grant);
+                    DataAccessGrant saved = grantRepository.save(grant);
+                    eventPublisher.publishEvent(GrantChangedEvent.of(saved, Instant.now()));
                 });
 
         // Eagerly delete the cached entry so revocation takes immediate effect.
