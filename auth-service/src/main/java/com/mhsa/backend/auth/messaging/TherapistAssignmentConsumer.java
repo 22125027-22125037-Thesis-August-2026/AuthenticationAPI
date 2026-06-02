@@ -8,6 +8,7 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mhsa.backend.auth.config.AssignmentMessagingConfig;
 import com.mhsa.backend.auth.model.AssignmentStatus;
@@ -49,7 +50,8 @@ public class TherapistAssignmentConsumer {
         AssignmentStatus status;
         try {
             String body = new String(message.getBody(), StandardCharsets.UTF_8);
-            event = objectMapper.readValue(body, AssignmentEvent.class);
+            JsonNode node = objectMapper.readTree(body);
+            event = AssignmentEvent.fromJson(node);
             if (event == null || !event.isValid()) {
                 throw new IllegalArgumentException("missing required fields: " + body);
             }
