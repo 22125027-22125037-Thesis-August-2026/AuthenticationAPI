@@ -1,8 +1,10 @@
 package com.mhsa.backend.auth.service;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,6 +17,7 @@ import com.mhsa.backend.auth.dto.LoginRequest;
 import com.mhsa.backend.auth.dto.ProfileUpdateRequest;
 import com.mhsa.backend.auth.dto.RegisterRequest;
 import com.mhsa.backend.auth.dto.UserResponse;
+import com.mhsa.backend.auth.messaging.TherapistProfileChangedEvent;
 import com.mhsa.backend.auth.model.Profile;
 import com.mhsa.backend.auth.jwt.Role;
 import com.mhsa.backend.auth.model.User;
@@ -36,6 +39,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public String register(RegisterRequest request) {
@@ -164,6 +168,11 @@ public class AuthService {
             userRepository.save(user);
         }
         profileRepository.save(profile);
+
+        // Fan out therapist changes so therapist-api can mirror them; emitted only AFTER_COMMIT.
+        if (profile instanceof TherapistProfile therapistProfile) {
+            eventPublisher.publishEvent(TherapistProfileChangedEvent.of(therapistProfile, Instant.now()));
+        }
 
         return toUserResponse(user, profile);
     }

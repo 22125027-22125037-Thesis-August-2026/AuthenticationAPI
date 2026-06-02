@@ -1,8 +1,10 @@
 package com.mhsa.backend.auth.service;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.mhsa.backend.auth.dto.LicenseResponse;
+import com.mhsa.backend.auth.messaging.TherapistProfileChangedEvent;
 import com.mhsa.backend.auth.model.LicenseStatus;
 import com.mhsa.backend.auth.model.Profile;
 import com.mhsa.backend.auth.model.TherapistProfile;
@@ -27,6 +30,7 @@ public class TherapistLicenseService {
 
     private final ProfileRepository profileRepository;
     private final FileStorageService fileStorageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public LicenseResponse getLicense(UUID profileId) {
@@ -62,6 +66,7 @@ public class TherapistLicenseService {
         therapist.setLicenseStatus(LicenseStatus.PENDING_VERIFICATION);
         therapist.setIsVerified(false);
         profileRepository.save(therapist);
+        publishProfileChanged(therapist);
 
         return toResponse(therapist);
     }
@@ -72,6 +77,7 @@ public class TherapistLicenseService {
         therapist.setLicenseStatus(LicenseStatus.VERIFIED);
         therapist.setIsVerified(true);
         profileRepository.save(therapist);
+        publishProfileChanged(therapist);
         return toResponse(therapist);
     }
 
@@ -81,7 +87,13 @@ public class TherapistLicenseService {
         therapist.setLicenseStatus(LicenseStatus.REJECTED);
         therapist.setIsVerified(false);
         profileRepository.save(therapist);
+        publishProfileChanged(therapist);
         return toResponse(therapist);
+    }
+
+    /** Fan out the license change so therapist-api mirrors it; emitted only AFTER_COMMIT. */
+    private void publishProfileChanged(TherapistProfile therapist) {
+        eventPublisher.publishEvent(TherapistProfileChangedEvent.of(therapist, Instant.now()));
     }
 
     private TherapistProfile loadTherapistProfile(UUID profileId) {

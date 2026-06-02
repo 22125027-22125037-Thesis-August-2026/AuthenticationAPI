@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mhsa.backend.auth.config.RabbitMQConfig;
 
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AuthEventPublisher {
 
     private final RabbitTemplate rabbitTemplate;
+    private final ObjectMapper objectMapper;
 
     @org.springframework.beans.factory.annotation.Value("${mhsa.auth.events.exchange:auth.events}")
     private String authEventsExchange;
@@ -50,6 +53,36 @@ public class AuthEventPublisher {
         log.info("Published grant event [{}]: grantId={}, granter={}, grantee={}, status={}",
                 routingKey, event.grantId(), event.granterProfileId(), event.granteeProfileId(),
                 event.status());
+    }
+
+    /**
+     * Publishes a therapist profile/avatar/license change to the topic exchange, but only after the
+     * editing transaction commits — a rolled-back edit therefore never emits. The payload is the flat
+     * profile snapshot ({@link TherapistProfileView}) plus the {@code eventId}/{@code occurredAt}
+     * envelope fields, all at top level. therapist-api binds its own queue to this exchange on
+     * routing key {@code therapist.profile.updated}.
+     */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onTherapistProfileChanged(TherapistProfileChangedEvent event) {
+        try {
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("eventId", event.eventId() == null ? null : event.eventId().toString());
+            payload.put("occurredAt", event.occurredAt() == null ? null : event.occurredAt().toString());
+            // Merge the flat profile fields (profileId, fullName, ... licenseStatus) at top level.
+            payload.setAll(event.profile().toJson(objectMapper));
+
+            rabbitTemplate.convertAndSend(
+                    authEventsExchange,
+                    RabbitMQConfig.THERAPIST_PROFILE_UPDATED_ROUTING_KEY,
+                    objectMapper.writeValueAsString(payload));
+            log.info("Published therapist.profile.updated event: profileId={}, eventId={}",
+                    event.profileId(), event.eventId());
+        } catch (Exception e) {
+            // Runs after commit, so we cannot fail the transaction; log and let nightly
+            // reconciliation on therapist-api's side heal any miss.
+            log.error("Failed to publish therapist.profile.updated event for profileId={}",
+                    event.profileId(), e);
+        }
     }
 
     /**

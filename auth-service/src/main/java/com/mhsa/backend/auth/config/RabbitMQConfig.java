@@ -17,6 +17,9 @@ public class RabbitMQConfig {
     /** Routing key for grant revoked/expired events. */
     public static final String GRANT_REVOKED_ROUTING_KEY = "auth.grant.revoked";
 
+    /** Routing key for therapist profile/avatar/license changes mirrored by therapist-api. */
+    public static final String THERAPIST_PROFILE_UPDATED_ROUTING_KEY = "therapist.profile.updated";
+
     /**
      * Topic exchange that fans out enriched grant events. Defaults to {@code auth.events}; the same
      * name must be configured on consumers (tracking-service) so their queues bind here.
