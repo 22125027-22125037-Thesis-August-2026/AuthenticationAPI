@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -40,6 +41,11 @@ public class AuthService {
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
     private final ApplicationEventPublisher eventPublisher;
+    private final RefreshTokenService refreshTokenService;
+
+    /** Access-token lifetime in ms; surfaced to clients as {@code expiresIn} (seconds). */
+    @Value("${mhsa.app.jwtExpirationMs}")
+    private long accessExpirationMs;
 
     @Transactional
     public String register(RegisterRequest request) {
@@ -85,10 +91,38 @@ public class AuthService {
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
 
-        // 3. Táº¡o Token
-        var token = jwtUtils.generateToken(user.getId(), profile.getId(), user.getEmail(), user.getRole());
+        // 3. Issue a short-lived access token plus a long-lived rotating refresh token.
+        String accessToken = jwtUtils.generateToken(user.getId(), profile.getId(), user.getEmail(), user.getRole());
+        var refresh = refreshTokenService.issue(user, request.getDeviceLabel());
 
-        return new AuthResponse(token, profile.getId(), user.getEmail(), user.getRole().name());
+        return buildAuthResponse(accessToken, refresh.rawToken(), profile, user);
+    }
+
+    /**
+     * Exchanges a valid refresh token for a fresh access token and a rotated refresh token.
+     * Delegates validation/rotation (including reuse detection) to {@link RefreshTokenService}.
+     */
+    @Transactional
+    public AuthResponse refresh(String refreshToken, String deviceLabel) {
+        var rotation = refreshTokenService.rotate(refreshToken, deviceLabel);
+        User user = rotation.user();
+        Profile profile = resolveOrCreateProfile(user);
+
+        String accessToken = jwtUtils.generateToken(user.getId(), profile.getId(), user.getEmail(), user.getRole());
+        return buildAuthResponse(accessToken, rotation.rawToken(), profile, user);
+    }
+
+    private AuthResponse buildAuthResponse(String accessToken, String refreshToken, Profile profile, User user) {
+        return AuthResponse.builder()
+                .token(accessToken) // legacy alias, kept during client rollout
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn(accessExpirationMs / 1000)
+                .profileId(profile.getId())
+                .email(user.getEmail())
+                .role(user.getRole().name())
+                .build();
     }
 
     public UserResponse getCurrentUser() {
