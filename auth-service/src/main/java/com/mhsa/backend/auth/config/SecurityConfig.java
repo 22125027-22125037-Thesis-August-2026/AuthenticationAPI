@@ -20,6 +20,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 import com.mhsa.backend.auth.jwt.JwtAuthenticationFilter;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
@@ -54,6 +55,15 @@ public class SecurityConfig {
                 )
                 .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                // Return 401 for authentication failures (missing/expired/invalid token)
+                // and reserve 403 for genuine authorization denials. Without this, Spring
+                // Security's default Http403ForbiddenEntryPoint returns 403 for both.
+                .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((req, res, e)
+                        -> res.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+                .accessDeniedHandler((req, res, e)
+                        -> res.sendError(HttpServletResponse.SC_FORBIDDEN))
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
