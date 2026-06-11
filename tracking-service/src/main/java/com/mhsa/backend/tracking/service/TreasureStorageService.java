@@ -45,8 +45,13 @@ public class TreasureStorageService {
     @Value("${s3.region}")
     private String region;
 
-    @Value("${s3.endpoint}")
-    private String endpoint;
+    // Public-facing endpoint used ONLY for presigned GET URLs handed to clients (the mobile
+    // app). Defaults to the internal s3.endpoint for local dev; in deployed envs it points at
+    // the gateway (e.g. http://<host>:8080) which proxies /mhsa-media/ to MinIO, because the
+    // internal "minio:9000" host is unreachable from devices. Uploads/deletes keep using the
+    // S3Client's internal endpoint (configured in S3Config).
+    @Value("${s3.public-endpoint:${s3.endpoint}}")
+    private String publicEndpoint;
 
     @Value("${s3.path-style-access:true}")
     private boolean pathStyleAccess;
@@ -81,14 +86,16 @@ public class TreasureStorageService {
                 .region(Region.of(region))
                 .credentialsProvider(s3Client.serviceClientConfiguration().credentialsProvider());
 
-        // Match the S3 client's addressing so dev URLs resolve to MinIO, not the public AWS host.
+        // Sign for the public-facing endpoint so the URL is reachable from devices, not the
+        // internal "minio:9000". Path-style keeps the bucket in the path (/mhsa-media/...),
+        // matching the nginx /mhsa-media/ proxy location.
         if (pathStyleAccess) {
             presignerBuilder.serviceConfiguration(S3Configuration.builder()
                     .pathStyleAccessEnabled(true)
                     .build());
         }
-        if (!endpoint.contains("amazonaws.com")) {
-            presignerBuilder.endpointOverride(URI.create(endpoint));
+        if (!publicEndpoint.contains("amazonaws.com")) {
+            presignerBuilder.endpointOverride(URI.create(publicEndpoint));
         }
 
         try (S3Presigner presigner = presignerBuilder.build()) {
