@@ -7,6 +7,7 @@ services:
     image: nginx:1.25-alpine
     container_name: nginx
     mem_limit: 64m
+    restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:
@@ -33,6 +34,7 @@ services:
     image: postgres:16-alpine
     container_name: postgres-auth
     mem_limit: 256m
+    restart: unless-stopped
     command: postgres -c shared_buffers=32MB -c max_connections=50
     environment:
       POSTGRES_DB: auth_db
@@ -54,6 +56,7 @@ services:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
     mem_limit: 384m
+    restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
@@ -77,6 +80,7 @@ services:
     image: redis:7-alpine
     container_name: redis
     mem_limit: 128m
+    restart: unless-stopped
     command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
     ports:
       - "6371:6379"
@@ -92,6 +96,7 @@ services:
     image: rabbitmq:3.12-management-alpine
     container_name: rabbitmq
     mem_limit: 384m
+    restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -110,6 +115,7 @@ services:
     image: postgres:16-alpine
     container_name: postgres-ai
     mem_limit: 256m
+    restart: unless-stopped
     command: postgres -c shared_buffers=32MB -c max_connections=50
     environment:
       POSTGRES_DB: ai_db
@@ -131,6 +137,7 @@ services:
     image: postgres:16-alpine
     container_name: postgres-tracking
     mem_limit: 256m
+    restart: unless-stopped
     command: postgres -c shared_buffers=32MB -c max_connections=50
     environment:
       POSTGRES_DB: tracking_db
@@ -152,6 +159,7 @@ services:
     image: minio/minio:latest
     container_name: minio
     mem_limit: 512m
+    restart: unless-stopped
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
@@ -191,6 +199,7 @@ services:
       dockerfile: auth-service/Dockerfile.build
     container_name: auth-service
     mem_limit: 640m
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -256,6 +265,7 @@ services:
       dockerfile: ai-service/Dockerfile.build
     container_name: ai-service
     mem_limit: 640m
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -315,6 +325,7 @@ services:
       dockerfile: tracking-service/Dockerfile.build
     container_name: tracking-service
     mem_limit: 640m
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -382,6 +393,7 @@ services:
       dockerfile: dashboard-service/Dockerfile.build
     container_name: dashboard-service
     mem_limit: 640m
+    restart: unless-stopped
     env_file:
       - .env
     environment:
