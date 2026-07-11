@@ -1,7 +1,12 @@
+# Memory ceilings target an 8 GiB host. A Spring Boot JVM with no -Xmx claims 25% of host RAM
+# for its heap; seven of them on one box overcommits it several times over. JAVA_TOOL_OPTIONS
+# uses MaxRAMPercentage rather than a literal -Xmx so each heap is derived from the mem_limit
+# beneath it (the JVM reads the cgroup) and the two can never drift apart.
 services:
   nginx:
     image: nginx:1.25-alpine
     container_name: nginx
+    mem_limit: 64m
     ports:
       - "8080:8080"
     volumes:
@@ -27,6 +32,8 @@ services:
   postgres-auth:
     image: postgres:16-alpine
     container_name: postgres-auth
+    mem_limit: 256m
+    command: postgres -c shared_buffers=32MB -c max_connections=50
     environment:
       POSTGRES_DB: auth_db
       POSTGRES_USER: postgres
@@ -46,6 +53,7 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
+    mem_limit: 384m
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
@@ -68,6 +76,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis
+    mem_limit: 128m
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
     ports:
       - "6371:6379"
     healthcheck:
@@ -81,6 +91,7 @@ services:
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: rabbitmq
+    mem_limit: 384m
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -98,6 +109,8 @@ services:
   postgres-ai:
     image: postgres:16-alpine
     container_name: postgres-ai
+    mem_limit: 256m
+    command: postgres -c shared_buffers=32MB -c max_connections=50
     environment:
       POSTGRES_DB: ai_db
       POSTGRES_USER: postgres
@@ -117,6 +130,8 @@ services:
   postgres-tracking:
     image: postgres:16-alpine
     container_name: postgres-tracking
+    mem_limit: 256m
+    command: postgres -c shared_buffers=32MB -c max_connections=50
     environment:
       POSTGRES_DB: tracking_db
       POSTGRES_USER: postgres
@@ -136,6 +151,7 @@ services:
   minio:
     image: minio/minio:latest
     container_name: minio
+    mem_limit: 512m
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
@@ -174,9 +190,11 @@ services:
       context: .
       dockerfile: auth-service/Dockerfile.build
     container_name: auth-service
+    mem_limit: 640m
     env_file:
       - .env
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k"
       SERVER_PORT: 8081
       SPRING_APPLICATION_NAME: auth-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/auth_db
@@ -237,9 +255,11 @@ services:
       context: .
       dockerfile: ai-service/Dockerfile.build
     container_name: ai-service
+    mem_limit: 640m
     env_file:
       - .env
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k"
       SERVER_PORT: 8087
       SPRING_APPLICATION_NAME: ai-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-ai:5432/ai_db
@@ -294,9 +314,11 @@ services:
       context: .
       dockerfile: tracking-service/Dockerfile.build
     container_name: tracking-service
+    mem_limit: 640m
     env_file:
       - .env
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k"
       SERVER_PORT: 8084
       SPRING_APPLICATION_NAME: tracking-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-tracking:5432/tracking_db
@@ -359,9 +381,11 @@ services:
       context: .
       dockerfile: dashboard-service/Dockerfile.build
     container_name: dashboard-service
+    mem_limit: 640m
     env_file:
       - .env
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k"
       SERVER_PORT: 8083
       SPRING_APPLICATION_NAME: dashboard-service
       MHSA_APP_JWTEXPIRATIONMS: 3600000
