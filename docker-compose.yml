@@ -2,6 +2,13 @@
 # for its heap; seven of them on one box overcommits it several times over. JAVA_TOOL_OPTIONS
 # uses MaxRAMPercentage rather than a literal -Xmx so each heap is derived from the mem_limit
 # beneath it (the JVM reads the cgroup) and the two can never drift apart.
+#
+# MaxMetaspaceSize is NOT part of the heap and is not covered by MaxRAMPercentage — it must be
+# budgeted on top of it. An earlier 128m ceiling was too small for auth-service (Security + JPA +
+# Redis + Rabbit + CGLIB proxies): it exhausted Metaspace ~1h after boot and threw OutOfMemoryError
+# on every request thread, which reads as a 504 hang rather than a crash because the JVM survives.
+# 256m metaspace + 45% heap keeps each service inside its 1g ceiling with room for code cache and
+# thread stacks.
 services:
   nginx:
     image: nginx:1.25-alpine
@@ -198,12 +205,12 @@ services:
       context: .
       dockerfile: auth-service/Dockerfile.build
     container_name: auth-service
-    mem_limit: 640m
+    mem_limit: 1g
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k"
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=45 -XX:MaxMetaspaceSize=256m -XX:+UseSerialGC -Xss512k"
       SERVER_PORT: 8081
       SPRING_APPLICATION_NAME: auth-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/auth_db
@@ -237,7 +244,7 @@ services:
       THERAPIST_API_EXCHANGE: booking.exchange
       THERAPIST_API_BASE_URL: http://therapist-api:8085
       LOGGING_LEVEL_ROOT: INFO
-      LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
+      LOGGING_LEVEL_COM_MHSA_BACKEND: INFO
     ports:
       - "8081:8081"
     depends_on:
@@ -264,12 +271,12 @@ services:
       context: .
       dockerfile: ai-service/Dockerfile.build
     container_name: ai-service
-    mem_limit: 640m
+    mem_limit: 1g
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k"
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=45 -XX:MaxMetaspaceSize=256m -XX:+UseSerialGC -Xss512k"
       SERVER_PORT: 8087
       SPRING_APPLICATION_NAME: ai-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-ai:5432/ai_db
@@ -298,7 +305,7 @@ services:
       GEMINI_API_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       LOGGING_LEVEL_ROOT: INFO
-      LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
+      LOGGING_LEVEL_COM_MHSA_BACKEND: INFO
     ports:
       - "8087:8087"
     depends_on:
@@ -324,12 +331,12 @@ services:
       context: .
       dockerfile: tracking-service/Dockerfile.build
     container_name: tracking-service
-    mem_limit: 640m
+    mem_limit: 1g
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k"
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=45 -XX:MaxMetaspaceSize=256m -XX:+UseSerialGC -Xss512k"
       SERVER_PORT: 8084
       SPRING_APPLICATION_NAME: tracking-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-tracking:5432/tracking_db
@@ -364,7 +371,7 @@ services:
       # The internal minio:9000 host is unreachable from mobile devices.
       S3_PUBLIC_ENDPOINT: https://umatter-apcs.duckdns.org
       LOGGING_LEVEL_ROOT: INFO
-      LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
+      LOGGING_LEVEL_COM_MHSA_BACKEND: INFO
     ports:
       - "8084:8084"
     depends_on:
@@ -392,12 +399,12 @@ services:
       context: .
       dockerfile: dashboard-service/Dockerfile.build
     container_name: dashboard-service
-    mem_limit: 640m
+    mem_limit: 1g
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k"
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=45 -XX:MaxMetaspaceSize=256m -XX:+UseSerialGC -Xss512k"
       SERVER_PORT: 8083
       SPRING_APPLICATION_NAME: dashboard-service
       MHSA_APP_JWTEXPIRATIONMS: 3600000
@@ -407,7 +414,7 @@ services:
       MHSA_APP_JWTPRIVATEKEY: ${JWT_PRIVATE_KEY}
       MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
       LOGGING_LEVEL_ROOT: INFO
-      LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
+      LOGGING_LEVEL_COM_MHSA_BACKEND: INFO
     ports:
       - "8083:8083"
     depends_on:
