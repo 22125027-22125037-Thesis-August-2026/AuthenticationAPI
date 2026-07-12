@@ -1,6 +1,7 @@
 package com.mhsa.backend.tracking.mapper;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
@@ -17,7 +18,10 @@ public class DataAccessGrantMapper {
             return null;
         }
 
+        // grant_id is an assigned key now (the entity is primarily an auth-service replica), so the
+        // local-write path must mint its own id.
         return DataAccessGrant.builder()
+                .grantId(UUID.randomUUID())
                 .granteeProfileId(dto.getGranteeProfileId())
                 .accessScope(dto.getAccessScope())
                 .expiresAt(dto.getExpiresAt())

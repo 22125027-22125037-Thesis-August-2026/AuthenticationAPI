@@ -14,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 public class FileStorageService {
 
     private static final List<String> ALLOWED_TYPES = List.of("image/jpeg", "image/png");
+    private static final List<String> ALLOWED_DOCUMENT_TYPES = List.of("image/jpeg", "image/png", "application/pdf");
     private static final long MAX_SIZE = 5L * 1024 * 1024; // 5MB
+    private static final long MAX_DOCUMENT_SIZE = 10L * 1024 * 1024; // 10MB for license documents
     private static final long PRESIGNED_URL_VALIDITY_SECONDS = 24 * 3600; // 24 hours for avatars
 
     private final S3StorageService s3StorageService;
@@ -41,6 +43,33 @@ public class FileStorageService {
             return s3StorageService.generatePresignedUrl(objectKey, PRESIGNED_URL_VALIDITY_SECONDS);
         } catch (Exception e) {
             throw new RuntimeException("Failed to store avatar file", e);
+        }
+    }
+
+    /**
+     * Stores a therapist license document (PDF or image) and returns a presigned URL to it.
+     */
+    public String storeLicenseDocument(MultipartFile file, UUID profileId) {
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_DOCUMENT_TYPES.contains(contentType)) {
+            throw new IllegalArgumentException("Only PDF, JPEG and PNG documents are accepted");
+        }
+        if (file.getSize() > MAX_DOCUMENT_SIZE) {
+            throw new IllegalArgumentException("File size must not exceed 10MB");
+        }
+
+        try {
+            String objectKey = s3StorageService.uploadLicenseDocument(
+                    profileId.toString(),
+                    file.getInputStream(),
+                    file.getOriginalFilename(),
+                    contentType);
+
+            return s3StorageService.generatePresignedUrl(objectKey, PRESIGNED_URL_VALIDITY_SECONDS);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to store license document", e);
         }
     }
 

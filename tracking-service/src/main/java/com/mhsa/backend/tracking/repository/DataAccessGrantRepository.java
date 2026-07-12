@@ -22,6 +22,8 @@ public interface DataAccessGrantRepository extends JpaRepository<DataAccessGrant
     Optional<DataAccessGrant> findActiveGrant(@Param("granterProfileId") UUID granterProfileId,
             @Param("granteeProfileId") UUID granteeProfileId, @Param("now") Instant now);
 
+    List<DataAccessGrant> findByStatus(GrantStatus status);
+
     List<DataAccessGrant> findByGranterProfileIdAndStatus(UUID granterProfileId, GrantStatus status);
 
     List<DataAccessGrant> findByGranteeProfileIdAndStatus(UUID granteeProfileId, GrantStatus status);

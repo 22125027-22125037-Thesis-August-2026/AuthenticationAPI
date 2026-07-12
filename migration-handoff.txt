@@ -1,0 +1,90 @@
+================================================================
+uMatter MIGRATION HANDOFF — Azure → Oracle Cloud
+Date: 2026-05-20
+================================================================
+
+## CURRENT STATUS (most important)
+- ALL 24 CONTAINERS RUNNING HEALTHY ON AZURE VM — DEMO IS SAFE.
+  Verified via SSH: 24/24 up, all 4 stacks live (auth, notification,
+  therapist, social). Postgres/Redis/RabbitMQ/MinIO/Nginx all healthy.
+- Azure migration to Korea Central was ABANDONED (snapshot copy monitor
+  stopped). Plan changed: migrating to ORACLE CLOUD instead.
+
+================================================================
+## AZURE VM (OLD — keep running for tomorrow's demo)
+================================================================
+- Host: azureuser@20.6.130.74
+- SSH key: D:\Y4-Sem 2 Thesis\Azure Deployment\umatter-server_key.pem
+- Region: East Asia
+- Subscription: Azure for Students (989b86ee-861b-48b6-a40f-89b6f2b027df)
+- Resource group: UMATTER-PROD-RG
+- VM name: umatter-server (Standard_B2als_v2, x86_64, 2 vCPU / 4 GB RAM)
+- Internal IP: 10.0.0.4
+
+### 4 Docker stacks / 24 containers (folder names on VM):
+  AuthenticationAPI (thesis-backend):
+    nginx, postgres-auth, postgres-ai, postgres-tracking, redis,
+    rabbitmq, minio, pgadmin, auth-service, ai-service,
+    tracking-service, dashboard-service
+  notification_api:
+    notification-postgres, umatter-redis, umatter-rabbitmq,
+    umatter-notification-service, notification-pgadmin
+  therapist-api:
+    therapist-api-postgres-1, therapist-api-api-1, therapist-api-pgadmin-1
+  thesis_social:
+    3be3cf19a22a_social-postgres, 9d06c385a519_social-rabbitmq,
+    social-api, social-pgadmin
+
+### IMPORTANT KNOWN ISSUE:
+- All 4 docker-compose.yml files on the VM are CORRUPTED (20 bytes each,
+  contain literal "<foldername> -"). Containers were restarted via
+  `docker start <name>` directly (bypassing compose). On Oracle, do a
+  FRESH git clone/pull instead — don't copy the corrupted compose files.
+
+### Health endpoints (on old VM):
+  localhost:8080/health, :8081/actuator/health, :8083/actuator/health
+
+================================================================
+## ORACLE CLOUD VM (NEW — being provisioned)
+================================================================
+- Name: uMatter-dev
+- Compartment: brukeduong (root)
+- AD-1, on-demand
+- OS: Canonical Ubuntu 24.04 (build 2026.04.30-1)
+- Shape: VM.Standard.E5.Flex — 4 OCPU / 24 GB RAM / 4 Gbps (AMD x86_64)
+    * CHOSE x86 over free A1.Flex (ARM) to avoid image rebuilds +
+      chronic ARM out-of-capacity. ~$100/mo, ~3 months on $300 credit.
+- Boot volume: 200 GB, VPU 10, in-transit encryption on
+- Network: uMatter-VCN / uMatter-Public-Subnet, public IPv4 enabled
+- Secure Boot / Measured Boot / TPM: disabled (Docker-friendly)
+- OS user: ubuntu
+- SSH key: ssh-key-2026-05-20 (public starts ssh-rsa AAAAB3...DfR1gmtv...)
+    * NOTE: this is a DIFFERENT keypair than the 2026-05-19 one.
+      Need the matching PRIVATE key to SSH in.
+
+### STILL NEEDED FROM USER (to proceed):
+  1. Oracle VM public IP
+  2. Path to matching private key (2026-05-20) on Windows machine
+  3. Confirmation 4 repos git-cloned + their dir layout on Oracle
+
+================================================================
+## NEXT STEPS (Oracle bring-up)
+================================================================
+1. SSH/SCP works on port 22 by default (open). Use it to copy .env
+   files from Azure -> Oracle for each of the 4 stacks.
+   (Decide also: copy Postgres dumps? MinIO bucket data? uploaded media?)
+2. git clone/pull the 4 repos fresh on Oracle (compose files are
+   corrupted on Azure — do NOT copy them).
+3. Drop the .env files into each repo folder on Oracle.
+4. Open VCN ingress rules (security list / NSG) for app ports:
+   80, 443, 8080, 8081, 8083, 5432, etc.
+5. Ubuntu on Oracle ships strict default iptables — flush/amend the
+   INPUT chain (Oracle's default blocks most inbound beyond 22).
+6. Install Docker + compose plugin on Oracle.
+7. `docker compose up -d` in each stack folder.
+8. Verify health endpoints; smoke-test all 4 stacks.
+9. Update DNS / frontend configs to new Oracle public IP.
+10. Only AFTER Oracle verified + demo done: clean up Azure (and the
+    leftover Korea Central resources: VNet umatter-VCN-kr,
+    public IP umatter-server-kr-ip = 20.41.117.124, NIC
+    umatter-server-kr-nic, snapshots — these still bill while idle).

@@ -1,8 +1,11 @@
 package com.mhsa.backend.auth.service;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,6 +18,7 @@ import com.mhsa.backend.auth.dto.LoginRequest;
 import com.mhsa.backend.auth.dto.ProfileUpdateRequest;
 import com.mhsa.backend.auth.dto.RegisterRequest;
 import com.mhsa.backend.auth.dto.UserResponse;
+import com.mhsa.backend.auth.messaging.TherapistProfileChangedEvent;
 import com.mhsa.backend.auth.model.Profile;
 import com.mhsa.backend.auth.jwt.Role;
 import com.mhsa.backend.auth.model.User;
@@ -36,6 +40,12 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
+    private final ApplicationEventPublisher eventPublisher;
+    private final RefreshTokenService refreshTokenService;
+
+    /** Access-token lifetime in ms; surfaced to clients as {@code expiresIn} (seconds). */
+    @Value("${mhsa.app.jwtExpirationMs}")
+    private long accessExpirationMs;
 
     @Transactional
     public String register(RegisterRequest request) {
@@ -81,10 +91,38 @@ public class AuthService {
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
 
-        // 3. Táº¡o Token
-        var token = jwtUtils.generateToken(user.getId(), profile.getId(), user.getEmail(), user.getRole());
+        // 3. Issue a short-lived access token plus a long-lived rotating refresh token.
+        String accessToken = jwtUtils.generateToken(user.getId(), profile.getId(), user.getEmail(), user.getRole());
+        var refresh = refreshTokenService.issue(user, request.getDeviceLabel());
 
-        return new AuthResponse(token, profile.getId(), user.getEmail(), user.getRole().name());
+        return buildAuthResponse(accessToken, refresh.rawToken(), profile, user);
+    }
+
+    /**
+     * Exchanges a valid refresh token for a fresh access token and a rotated refresh token.
+     * Delegates validation/rotation (including reuse detection) to {@link RefreshTokenService}.
+     */
+    @Transactional
+    public AuthResponse refresh(String refreshToken, String deviceLabel) {
+        var rotation = refreshTokenService.rotate(refreshToken, deviceLabel);
+        User user = rotation.user();
+        Profile profile = resolveOrCreateProfile(user);
+
+        String accessToken = jwtUtils.generateToken(user.getId(), profile.getId(), user.getEmail(), user.getRole());
+        return buildAuthResponse(accessToken, rotation.rawToken(), profile, user);
+    }
+
+    private AuthResponse buildAuthResponse(String accessToken, String refreshToken, Profile profile, User user) {
+        return AuthResponse.builder()
+                .token(accessToken) // legacy alias, kept during client rollout
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn(accessExpirationMs / 1000)
+                .profileId(profile.getId())
+                .email(user.getEmail())
+                .role(user.getRole().name())
+                .build();
     }
 
     public UserResponse getCurrentUser() {
@@ -114,16 +152,7 @@ public class AuthService {
         var profile = profileRepository.findByUser_Id(currentUserId).orElse(null);
 
         // 3. Convert sang DTO (KhÃ´ng tráº£ vá» password!)
-        return UserResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phoneNumber(user.getPhoneNumber())
-                .dob(user.getDob())
-                .role(user.getRole().name())
-                .creditsBalance(user.getCreditsBalance())
-                .avatarUrl(profile != null ? profile.getAvatarUrl() : null)
-                .build();
+        return toUserResponse(user, profile);
     }
 
     @Transactional
@@ -149,12 +178,45 @@ public class AuthService {
         if (request.getAvatarUrl() != null) {
             profile.setAvatarUrl(request.getAvatarUrl());
         }
+
+        // Therapist-specific fields are only applied when the profile is a therapist.
+        if (profile instanceof TherapistProfile therapistProfile) {
+            if (request.getSpecialization() != null) {
+                therapistProfile.setSpecialization(request.getSpecialization());
+            }
+            if (request.getBio() != null) {
+                therapistProfile.setBio(request.getBio());
+            }
+            if (request.getYearsOfExperience() != null) {
+                therapistProfile.setYearsOfExperience(request.getYearsOfExperience());
+            }
+            if (request.getConsultationFee() != null) {
+                therapistProfile.setConsultationFee(request.getConsultationFee());
+            }
+            if (request.getLanguages() != null) {
+                therapistProfile.setLanguages(request.getLanguages());
+            }
+        }
+
         if (userDirty) {
             userRepository.save(user);
         }
         profileRepository.save(profile);
 
-        return UserResponse.builder()
+        // Fan out therapist changes so therapist-api can mirror them; emitted only AFTER_COMMIT.
+        if (profile instanceof TherapistProfile therapistProfile) {
+            eventPublisher.publishEvent(TherapistProfileChangedEvent.of(therapistProfile, Instant.now()));
+        }
+
+        return toUserResponse(user, profile);
+    }
+
+    /**
+     * Builds the {@link UserResponse} for a user, enriching it with therapist-specific
+     * fields (specialization, license, languages, …) when the profile is a therapist.
+     */
+    private UserResponse toUserResponse(User user, Profile profile) {
+        UserResponse.UserResponseBuilder builder = UserResponse.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
@@ -162,8 +224,47 @@ public class AuthService {
                 .dob(user.getDob())
                 .role(user.getRole().name())
                 .creditsBalance(user.getCreditsBalance())
-                .avatarUrl(profile.getAvatarUrl())
-                .build();
+                .avatarUrl(profile != null ? profile.getAvatarUrl() : null);
+
+        if (profile instanceof TherapistProfile therapist) {
+            builder.specialization(therapist.getSpecialization())
+                    .bio(therapist.getBio())
+                    .yearsOfExperience(therapist.getYearsOfExperience())
+                    .consultationFee(therapist.getConsultationFee())
+                    .languages(therapist.getLanguages())
+                    .licenseNumber(therapist.getLicenseNumber())
+                    .licenseAuthority(therapist.getLicenseAuthority())
+                    .licenseExpiresAt(therapist.getLicenseExpiresAt())
+                    .licenseStatus(therapist.getLicenseStatus() != null
+                            ? therapist.getLicenseStatus().name()
+                            : null);
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * Verifies the supplied current password and replaces it with the new one.
+     * Throws {@link IllegalArgumentException} if the current password does not match
+     * so the controller can map it to a 400 response.
+     */
+    @Transactional
+    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+        var user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getPassword() == null || !passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+        if (newPassword == null || newPassword.length() < 8) {
+            throw new IllegalArgumentException("New password must be at least 8 characters long");
+        }
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new IllegalArgumentException("New password must differ from the current password");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 
     private Profile buildProfile(User user, RegisterRequest request) {
@@ -184,7 +285,11 @@ public class AuthService {
             profile.setBio(request.getBio());
             profile.setYearsOfExperience(request.getYearsOfExperience());
             profile.setConsultationFee(request.getConsultationFee());
-            profile.setIsVerified(Boolean.TRUE.equals(request.getVerified()));
+            boolean verified = Boolean.TRUE.equals(request.getVerified());
+            profile.setIsVerified(verified);
+            profile.setLicenseStatus(verified
+                    ? com.mhsa.backend.auth.model.LicenseStatus.VERIFIED
+                    : com.mhsa.backend.auth.model.LicenseStatus.PENDING_VERIFICATION);
             return profile;
         }
 

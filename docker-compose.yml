@@ -1,7 +1,13 @@
+# Memory ceilings target an 8 GiB host. A Spring Boot JVM with no -Xmx claims 25% of host RAM
+# for its heap; seven of them on one box overcommits it several times over. JAVA_TOOL_OPTIONS
+# uses MaxRAMPercentage rather than a literal -Xmx so each heap is derived from the mem_limit
+# beneath it (the JVM reads the cgroup) and the two can never drift apart.
 services:
   nginx:
     image: nginx:1.25-alpine
     container_name: nginx
+    mem_limit: 64m
+    restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:
@@ -22,10 +28,14 @@ services:
       retries: 3
     networks:
       - mhsa-network
+      - umatter-shared
 
   postgres-auth:
     image: postgres:16-alpine
     container_name: postgres-auth
+    mem_limit: 256m
+    restart: unless-stopped
+    command: postgres -c shared_buffers=32MB -c max_connections=50
     environment:
       POSTGRES_DB: auth_db
       POSTGRES_USER: postgres
@@ -45,13 +55,15 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
+    mem_limit: 384m
+    restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_ENHANCED_PASSWORD_FIELD: "False"
     ports:
-      - "5050:80"
+      - "5051:80"
     depends_on:
       postgres-auth:
         condition: service_healthy
@@ -67,8 +79,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis
+    mem_limit: 128m
+    restart: unless-stopped
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
     ports:
-      - "6379:6379"
+      - "6371:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -80,12 +95,14 @@ services:
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: rabbitmq
+    mem_limit: 384m
+    restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     ports:
-      - "5678:5672"
-      - "15678:15672"
+      - "5671:5672"
+      - "15671:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -97,12 +114,15 @@ services:
   postgres-ai:
     image: postgres:16-alpine
     container_name: postgres-ai
+    mem_limit: 256m
+    restart: unless-stopped
+    command: postgres -c shared_buffers=32MB -c max_connections=50
     environment:
       POSTGRES_DB: ai_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5438:5432"
+      - "5437:5432"
     volumes:
       - postgres-ai-data:/var/lib/postgresql/data
     healthcheck:
@@ -116,12 +136,15 @@ services:
   postgres-tracking:
     image: postgres:16-alpine
     container_name: postgres-tracking
+    mem_limit: 256m
+    restart: unless-stopped
+    command: postgres -c shared_buffers=32MB -c max_connections=50
     environment:
       POSTGRES_DB: tracking_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5439:5432"
+      - "5434:5432"
     volumes:
       - postgres-tracking-data:/var/lib/postgresql/data
     healthcheck:
@@ -135,6 +158,8 @@ services:
   minio:
     image: minio/minio:latest
     container_name: minio
+    mem_limit: 512m
+    restart: unless-stopped
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
@@ -173,9 +198,12 @@ services:
       context: .
       dockerfile: auth-service/Dockerfile.build
     container_name: auth-service
+    mem_limit: 640m
+    restart: unless-stopped
     env_file:
       - .env
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k"
       SERVER_PORT: 8081
       SPRING_APPLICATION_NAME: auth-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/auth_db
@@ -204,6 +232,10 @@ services:
       S3_ACCESS_KEY: minioadmin
       S3_SECRET_KEY: minioadmin
       S3_PATH_STYLE_ACCESS: "true"
+      # Therapist-api integration: shared booking.exchange for assignment events, and the
+      # therapist-api host:port (8085) reached over the umatter-shared network for nightly reconcile.
+      THERAPIST_API_EXCHANGE: booking.exchange
+      THERAPIST_API_BASE_URL: http://therapist-api:8085
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
@@ -225,16 +257,20 @@ services:
       start_period: 60s
     networks:
       - mhsa-network
+      - umatter-shared
 
   ai-service:
     build:
       context: .
       dockerfile: ai-service/Dockerfile.build
     container_name: ai-service
+    mem_limit: 640m
+    restart: unless-stopped
     env_file:
       - .env
     environment:
-      SERVER_PORT: 8082
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k"
+      SERVER_PORT: 8087
       SPRING_APPLICATION_NAME: ai-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-ai:5432/ai_db
       SPRING_DATASOURCE_USERNAME: postgres
@@ -257,14 +293,14 @@ services:
       MHSA_APP_JWTSIGNINGKID: mhsa.app.jwtSigningKid
       MHSA_APP_JWTPRIVATEKEY: ${JWT_PRIVATE_KEY}
       MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
-      SERVICE_TRACKING_URL: http://tracking-service:8083
+      SERVICE_TRACKING_URL: http://tracking-service:8084
       SERVICE_AUTH_URL: http://auth-service:8081
       GEMINI_API_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
-      - "8085:8082"
+      - "8087:8087"
     depends_on:
       postgres-ai:
         condition: service_healthy
@@ -275,7 +311,7 @@ services:
       tracking-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8087/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -288,10 +324,13 @@ services:
       context: .
       dockerfile: tracking-service/Dockerfile.build
     container_name: tracking-service
+    mem_limit: 640m
+    restart: unless-stopped
     env_file:
       - .env
     environment:
-      SERVER_PORT: 8083
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k"
+      SERVER_PORT: 8084
       SPRING_APPLICATION_NAME: tracking-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-tracking:5432/tracking_db
       SPRING_DATASOURCE_USERNAME: postgres
@@ -315,10 +354,19 @@ services:
       MHSA_APP_JWTPRIVATEKEY: ${JWT_PRIVATE_KEY}
       MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
       SERVICE_AUTH_URL: http://auth-service:8081
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: mhsa-media
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_PATH_STYLE_ACCESS: "true"
+      # Public gateway base used for presigned media URLs (nginx proxies /mhsa-media/ to MinIO).
+      # The internal minio:9000 host is unreachable from mobile devices.
+      S3_PUBLIC_ENDPOINT: https://umatter-apcs.duckdns.org
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
-      - "8086:8083"
+      - "8084:8084"
     depends_on:
       postgres-tracking:
         condition: service_healthy
@@ -328,8 +376,10 @@ services:
         condition: service_healthy
       auth-service:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -342,10 +392,13 @@ services:
       context: .
       dockerfile: dashboard-service/Dockerfile.build
     container_name: dashboard-service
+    mem_limit: 640m
+    restart: unless-stopped
     env_file:
       - .env
     environment:
-      SERVER_PORT: 8084
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k"
+      SERVER_PORT: 8083
       SPRING_APPLICATION_NAME: dashboard-service
       MHSA_APP_JWTEXPIRATIONMS: 3600000
       MHSA_APP_JWTISSUER: mhsa.backend
@@ -356,7 +409,7 @@ services:
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: DEBUG
     ports:
-      - "8087:8084"
+      - "8083:8083"
     depends_on:
       auth-service:
         condition: service_healthy
@@ -365,7 +418,7 @@ services:
       ai-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/api/v1/dashboard/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/api/v1/dashboard/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -383,3 +436,5 @@ volumes:
 networks:
   mhsa-network:
     driver: bridge
+  umatter-shared:
+    external: true
