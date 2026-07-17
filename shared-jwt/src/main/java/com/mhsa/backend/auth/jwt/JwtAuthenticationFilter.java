@@ -52,7 +52,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
 
-            String userId = jwtUtils.getUserIdFromJwtToken(token);
             String email = jwtUtils.getEmailFromJwtToken(token);
             UUID profileId = jwtUtils.getProfileIdFromJwtToken(token);
             var role = jwtUtils.getRoleFromJwtToken(token);
@@ -69,7 +68,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             UsernamePasswordAuthenticationToken authentication
                     = new UsernamePasswordAuthenticationToken(
-                            new AuthenticatedUserPrincipal(UUID.fromString(userId), profileId, email, role),
+                            new AuthenticatedUserPrincipal(profileId, email, role),
                             null,
                             userDetails != null ? userDetails.getAuthorities() : Collections.emptyList()
                     );

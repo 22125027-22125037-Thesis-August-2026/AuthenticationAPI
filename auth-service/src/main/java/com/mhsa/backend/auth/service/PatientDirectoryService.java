@@ -32,14 +32,13 @@ public class PatientDirectoryService {
         Profile profile = profileRepository.findById(profileId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Profile not found"));
 
-        var user = profile.getUser();
         LocalDate dob = profile.getDateOfBirth();
 
         PatientDetailResponse.PatientDetailResponseBuilder builder = PatientDetailResponse.builder()
                 .profileId(profile.getId())
                 .fullName(profile.getFullName())
-                .email(user != null ? user.getEmail() : null)
-                .role(user != null && user.getRole() != null ? user.getRole().name() : null)
+                .email(profile.getEmail())
+                .role(profile.getRole() != null ? profile.getRole().name() : null)
                 .avatarUrl(profile.getAvatarUrl())
                 .dateOfBirth(dob)
                 .age(dob != null ? Period.between(dob, LocalDate.now()).getYears() : null)

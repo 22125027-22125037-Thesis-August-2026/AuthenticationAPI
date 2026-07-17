@@ -39,8 +39,8 @@ public class RefreshToken {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "profile_id", nullable = false)
+    private Profile profile;
 
     /** SHA-256 hex digest of the raw token; the only representation we keep. */
     @Column(name = "token_hash", nullable = false, unique = true, length = 64)

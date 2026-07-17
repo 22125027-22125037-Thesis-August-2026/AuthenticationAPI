@@ -82,8 +82,8 @@ public class AuthController {
 
     @PatchMapping("/profile")
     public ResponseEntity<UserResponse> updateProfile(@RequestBody ProfileUpdateRequest request) {
-        UUID userId = resolveCurrentUserId();
-        return ResponseEntity.ok(authService.updateProfile(userId, request));
+        UUID profileId = resolveCurrentProfileId();
+        return ResponseEntity.ok(authService.updateProfile(profileId, request));
     }
 
     @PostMapping("/profile/avatar")
@@ -101,9 +101,9 @@ public class AuthController {
 
     @PostMapping("/password/change")
     public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
-        UUID userId = resolveCurrentUserId();
+        UUID profileId = resolveCurrentProfileId();
         try {
-            authService.changePassword(userId, request.getCurrentPassword(), request.getNewPassword());
+            authService.changePassword(profileId, request.getCurrentPassword(), request.getNewPassword());
             return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -154,22 +154,6 @@ public class AuthController {
         return ResponseEntity.ok("Logged out successfully");
     }
 
-    private UUID resolveCurrentUserId() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException("Unauthorized");
-        }
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof AuthenticatedUserPrincipal p) {
-            return p.userId();
-        }
-        try {
-            return UUID.fromString(authentication.getName());
-        } catch (IllegalArgumentException e) {
-            throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException("Unauthorized");
-        }
-    }
-
     private UUID resolveCurrentProfileId() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -179,7 +163,11 @@ public class AuthController {
         if (principal instanceof AuthenticatedUserPrincipal p && p.profileId() != null) {
             return p.profileId();
         }
-        throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException("Profile ID not found");
+        try {
+            return UUID.fromString(authentication.getName());
+        } catch (IllegalArgumentException e) {
+            throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException("Profile ID not found");
+        }
     }
 }
 

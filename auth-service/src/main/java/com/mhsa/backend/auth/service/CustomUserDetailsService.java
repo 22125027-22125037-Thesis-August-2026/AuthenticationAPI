@@ -8,8 +8,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import com.mhsa.backend.auth.model.User;
-import com.mhsa.backend.auth.repository.UserRepository;
+import com.mhsa.backend.auth.model.Profile;
+import com.mhsa.backend.auth.repository.ProfileRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,19 +17,19 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
 
-    private final UserRepository userRepository;
+    private final ProfileRepository profileRepository;
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        // 1. Tìm user trong DB
-        User user = userRepository.findByEmail(email)
+        // 1. Tìm profile trong DB
+        Profile profile = profileRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
         // 2. Trả về đối tượng User của Spring Security
         return new org.springframework.security.core.userdetails.User(
-                user.getEmail(),
-                user.getPassword(),
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+                profile.getEmail(),
+                profile.getPassword(),
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + profile.getRole().name()))
         );
     }
 }

@@ -21,11 +21,9 @@ import com.mhsa.backend.auth.dto.UserResponse;
 import com.mhsa.backend.auth.messaging.TherapistProfileChangedEvent;
 import com.mhsa.backend.auth.model.Profile;
 import com.mhsa.backend.auth.jwt.Role;
-import com.mhsa.backend.auth.model.User;
 import com.mhsa.backend.auth.model.TeenProfile;
 import com.mhsa.backend.auth.model.TherapistProfile;
 import com.mhsa.backend.auth.repository.ProfileRepository;
-import com.mhsa.backend.auth.repository.UserRepository;
 import com.mhsa.backend.auth.jwt.JwtUtils;
 import com.mhsa.backend.auth.jwt.AuthenticatedUserPrincipal;
 
@@ -35,7 +33,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
@@ -50,7 +47,7 @@ public class AuthService {
     @Transactional
     public String register(RegisterRequest request) {
         // 1. Check email trÃ¹ng
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (profileRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email already exists!");
         }
 
@@ -58,21 +55,9 @@ public class AuthService {
             throw new RuntimeException("Role is required");
         }
 
-        // 2. Táº¡o User má»›i
-        User user = new User();
-        user.setFullName(request.getFullName());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword())); // MÃ£ hÃ³a pass
-        user.setPhoneNumber(request.getPhoneNumber());
-        user.setDob(request.getDob());
-        user.setRole(request.getRole());
-        user.setPinCode(request.getPinCode());
-        user.setAccountType(request.getAccountType());
-
-        userRepository.save(user);
-        Profile profile = buildProfile(user, request);
+        // 2. Táº¡o Profile má»›i (the single account entity since the users/profiles merge)
+        Profile profile = buildProfile(request);
         profileRepository.save(profile);
-        user.setProfile(profile);
         return "User registered successfully!";
     }
 
@@ -82,20 +67,18 @@ public class AuthService {
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
-        // 2. TÃ¬m user Ä‘á»ƒ láº¥y thÃ´ng tin
-        var user = userRepository.findByEmail(request.getEmail())
+        // 2. TÃ¬m profile Ä‘á»ƒ láº¥y thÃ´ng tin
+        var profile = profileRepository.findByEmail(request.getEmail())
                 .orElseThrow();
 
-        Profile profile = resolveOrCreateProfile(user);
-
-        user.setLastLogin(LocalDateTime.now());
-        userRepository.save(user);
+        profile.setLastLogin(LocalDateTime.now());
+        profileRepository.save(profile);
 
         // 3. Issue a short-lived access token plus a long-lived rotating refresh token.
-        String accessToken = jwtUtils.generateToken(user.getId(), profile.getId(), user.getEmail(), user.getRole());
-        var refresh = refreshTokenService.issue(user, request.getDeviceLabel());
+        String accessToken = jwtUtils.generateToken(profile.getId(), profile.getEmail(), profile.getRole());
+        var refresh = refreshTokenService.issue(profile, request.getDeviceLabel());
 
-        return buildAuthResponse(accessToken, refresh.rawToken(), profile, user);
+        return buildAuthResponse(accessToken, refresh.rawToken(), profile);
     }
 
     /**
@@ -105,14 +88,13 @@ public class AuthService {
     @Transactional
     public AuthResponse refresh(String refreshToken, String deviceLabel) {
         var rotation = refreshTokenService.rotate(refreshToken, deviceLabel);
-        User user = rotation.user();
-        Profile profile = resolveOrCreateProfile(user);
+        Profile profile = rotation.profile();
 
-        String accessToken = jwtUtils.generateToken(user.getId(), profile.getId(), user.getEmail(), user.getRole());
-        return buildAuthResponse(accessToken, rotation.rawToken(), profile, user);
+        String accessToken = jwtUtils.generateToken(profile.getId(), profile.getEmail(), profile.getRole());
+        return buildAuthResponse(accessToken, rotation.rawToken(), profile);
     }
 
-    private AuthResponse buildAuthResponse(String accessToken, String refreshToken, Profile profile, User user) {
+    private AuthResponse buildAuthResponse(String accessToken, String refreshToken, Profile profile) {
         return AuthResponse.builder()
                 .token(accessToken) // legacy alias, kept during client rollout
                 .accessToken(accessToken)
@@ -120,60 +102,49 @@ public class AuthService {
                 .tokenType("Bearer")
                 .expiresIn(accessExpirationMs / 1000)
                 .profileId(profile.getId())
-                .email(user.getEmail())
-                .role(user.getRole().name())
+                .email(profile.getEmail())
+                .role(profile.getRole().name())
                 .build();
     }
 
     public UserResponse getCurrentUser() {
-        // 1. Láº¥y userId tá»« Security Context (Do JwtFilter Ä‘Ã£ set vÃ o trÆ°á»›c Ä‘Ã³)
+        // 1. Láº¥y profileId tá»« Security Context (Do JwtFilter Ä‘Ã£ set vÃ o trÆ°á»›c Ä‘Ã³)
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
                 || authentication.getPrincipal() == null) {
             throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException("Unauthorized");
         }
 
-        UUID currentUserId;
+        UUID currentProfileId;
         try {
             Object principal = authentication.getPrincipal();
             if (principal instanceof AuthenticatedUserPrincipal authenticatedUserPrincipal) {
-                currentUserId = authenticatedUserPrincipal.userId();
+                currentProfileId = authenticatedUserPrincipal.profileId();
             } else {
-                currentUserId = UUID.fromString(authentication.getName());
+                currentProfileId = UUID.fromString(authentication.getName());
             }
         } catch (IllegalArgumentException e) {
             throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException("Unauthorized");
         }
 
         // 2. Query DB
-        var user = userRepository.findById(currentUserId)
+        var profile = profileRepository.findById(currentProfileId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        var profile = profileRepository.findByUser_Id(currentUserId).orElse(null);
-
-        // 3. Convert sang DTO (KhÃ´ng tráº£ vá» password!)
-        return toUserResponse(user, profile);
+        // 3. Convert sang DTO (KhÃ´ng tráº£ vá» password!)
+        return toUserResponse(profile);
     }
 
     @Transactional
-    public UserResponse updateProfile(UUID userId, ProfileUpdateRequest request) {
-        var user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        var profile = profileRepository.findByUser_Id(userId)
+    public UserResponse updateProfile(UUID profileId, ProfileUpdateRequest request) {
+        var profile = profileRepository.findById(profileId)
                 .orElseThrow(() -> new RuntimeException("Profile not found"));
 
-        boolean userDirty = false;
-
         if (request.getFullName() != null) {
-            user.setFullName(request.getFullName());
             profile.setFullName(request.getFullName());
-            userDirty = true;
         }
         if (request.getPhoneNumber() != null) {
-            user.setPhoneNumber(request.getPhoneNumber());
             profile.setPhoneNumber(request.getPhoneNumber());
-            userDirty = true;
         }
         if (request.getAvatarUrl() != null) {
             profile.setAvatarUrl(request.getAvatarUrl());
@@ -198,9 +169,6 @@ public class AuthService {
             }
         }
 
-        if (userDirty) {
-            userRepository.save(user);
-        }
         profileRepository.save(profile);
 
         // Fan out therapist changes so therapist-api can mirror them; emitted only AFTER_COMMIT.
@@ -208,23 +176,23 @@ public class AuthService {
             eventPublisher.publishEvent(TherapistProfileChangedEvent.of(therapistProfile, Instant.now()));
         }
 
-        return toUserResponse(user, profile);
+        return toUserResponse(profile);
     }
 
     /**
-     * Builds the {@link UserResponse} for a user, enriching it with therapist-specific
+     * Builds the {@link UserResponse} for a profile, enriching it with therapist-specific
      * fields (specialization, license, languages, …) when the profile is a therapist.
      */
-    private UserResponse toUserResponse(User user, Profile profile) {
+    private UserResponse toUserResponse(Profile profile) {
         UserResponse.UserResponseBuilder builder = UserResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phoneNumber(user.getPhoneNumber())
-                .dob(user.getDob())
-                .role(user.getRole().name())
-                .creditsBalance(user.getCreditsBalance())
-                .avatarUrl(profile != null ? profile.getAvatarUrl() : null);
+                .id(profile.getId())
+                .fullName(profile.getFullName())
+                .email(profile.getEmail())
+                .phoneNumber(profile.getPhoneNumber())
+                .dob(profile.getDateOfBirth())
+                .role(profile.getRole().name())
+                .creditsBalance(profile.getCreditsBalance())
+                .avatarUrl(profile.getAvatarUrl());
 
         if (profile instanceof TherapistProfile therapist) {
             builder.specialization(therapist.getSpecialization())
@@ -249,30 +217,30 @@ public class AuthService {
      * so the controller can map it to a 400 response.
      */
     @Transactional
-    public void changePassword(UUID userId, String currentPassword, String newPassword) {
-        var user = userRepository.findById(userId)
+    public void changePassword(UUID profileId, String currentPassword, String newPassword) {
+        var profile = profileRepository.findById(profileId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (user.getPassword() == null || !passwordEncoder.matches(currentPassword, user.getPassword())) {
+        if (profile.getPassword() == null || !passwordEncoder.matches(currentPassword, profile.getPassword())) {
             throw new IllegalArgumentException("Current password is incorrect");
         }
         if (newPassword == null || newPassword.length() < 8) {
             throw new IllegalArgumentException("New password must be at least 8 characters long");
         }
-        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+        if (passwordEncoder.matches(newPassword, profile.getPassword())) {
             throw new IllegalArgumentException("New password must differ from the current password");
         }
 
-        user.setPassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
+        profile.setPassword(passwordEncoder.encode(newPassword));
+        profileRepository.save(profile);
     }
 
-    private Profile buildProfile(User user, RegisterRequest request) {
+    private Profile buildProfile(RegisterRequest request) {
         Role role = request.getRole();
 
         if (role == Role.TEEN) {
             TeenProfile profile = new TeenProfile();
-            populateBaseProfile(profile, user, request);
+            populateBaseProfile(profile, request);
             profile.setSchool(request.getSchool());
             profile.setEmergencyContact(request.getEmergencyContact());
             return profile;
@@ -280,7 +248,7 @@ public class AuthService {
 
         if (role == Role.THERAPIST) {
             TherapistProfile profile = new TherapistProfile();
-            populateBaseProfile(profile, user, request);
+            populateBaseProfile(profile, request);
             profile.setSpecialization(request.getSpecialization());
             profile.setBio(request.getBio());
             profile.setYearsOfExperience(request.getYearsOfExperience());
@@ -294,43 +262,20 @@ public class AuthService {
         }
 
         Profile profile = new Profile();
-        populateBaseProfile(profile, user, request);
+        populateBaseProfile(profile, request);
         return profile;
     }
 
-    private Profile resolveOrCreateProfile(User user) {
-        return profileRepository.findByUser_Id(user.getId())
-                .orElseGet(() -> {
-                    Profile profile = switch (user.getRole()) {
-                        case TEEN -> {
-                            TeenProfile teenProfile = new TeenProfile();
-                            populateBaseProfile(teenProfile, user, null);
-                            yield teenProfile;
-                        }
-                        case THERAPIST -> {
-                            TherapistProfile therapistProfile = new TherapistProfile();
-                            populateBaseProfile(therapistProfile, user, null);
-                            yield therapistProfile;
-                        }
-                        case PARENT, ADMIN -> {
-                            Profile baseProfile = new Profile();
-                            populateBaseProfile(baseProfile, user, null);
-                            yield baseProfile;
-                        }
-                    };
-                    return profileRepository.save(profile);
-                });
-    }
-
-    private void populateBaseProfile(Profile profile, User user, RegisterRequest request) {
-        profile.setUser(user);
-        profile.setFullName(request == null ? user.getFullName() : request.getFullName());
-        profile.setAvatarUrl(request == null ? null : request.getAvatarUrl());
-        profile.setDateOfBirth(request == null ? user.getDob() : request.getDob());
-        profile.setPhoneNumber(request == null ? user.getPhoneNumber() : request.getPhoneNumber());
-        if (request != null) {
-            profile.setGender(request.getGender());
-        }
+    private void populateBaseProfile(Profile profile, RegisterRequest request) {
+        profile.setEmail(request.getEmail());
+        profile.setPassword(passwordEncoder.encode(request.getPassword())); // MÃ£ hÃ³a pass
+        profile.setRole(request.getRole());
+        profile.setPinCode(request.getPinCode());
+        profile.setAccountType(request.getAccountType());
+        profile.setFullName(request.getFullName());
+        profile.setAvatarUrl(request.getAvatarUrl());
+        profile.setDateOfBirth(request.getDob());
+        profile.setPhoneNumber(request.getPhoneNumber());
+        profile.setGender(request.getGender());
     }
 }
-

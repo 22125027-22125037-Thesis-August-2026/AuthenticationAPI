@@ -14,8 +14,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.mhsa.backend.auth.model.Profile;
 import com.mhsa.backend.auth.model.RefreshToken;
-import com.mhsa.backend.auth.model.User;
 import com.mhsa.backend.auth.repository.RefreshTokenRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,7 @@ import lombok.RequiredArgsConstructor;
  * Issues, rotates, and revokes opaque refresh tokens. The raw token is a 256-bit random value
  * returned to the caller once; only its SHA-256 hash is persisted. Rotation invalidates the
  * presented token and issues a successor, and presenting an already-used token revokes the
- * user's whole token set (reuse / theft detection).
+ * profile's whole token set (reuse / theft detection).
  */
 @Service
 @RequiredArgsConstructor
@@ -47,20 +47,20 @@ public class RefreshTokenService {
     /** The raw token (shown to the client once) paired with its persisted row. */
     public record IssuedToken(String rawToken, RefreshToken entity) {}
 
-    /** Outcome of a rotation: the owning user plus the freshly issued token. */
-    public record RotationResult(User user, String rawToken, RefreshToken entity) {}
+    /** Outcome of a rotation: the owning profile plus the freshly issued token. */
+    public record RotationResult(Profile profile, String rawToken, RefreshToken entity) {}
 
     /**
-     * Issue a brand-new refresh token for {@code user} (called at login). Starts a fresh
+     * Issue a brand-new refresh token for {@code profile} (called at login). Starts a fresh
      * rolling window and a fresh absolute cap.
      */
     @Transactional
-    public IssuedToken issue(User user, String deviceLabel) {
+    public IssuedToken issue(Profile profile, String deviceLabel) {
         Instant now = Instant.now();
         String raw = generateRawToken();
 
         RefreshToken token = RefreshToken.builder()
-                .user(user)
+                .profile(profile)
                 .tokenHash(hash(raw))
                 .deviceLabel(deviceLabel)
                 .createdAt(now)
@@ -87,9 +87,9 @@ public class RefreshTokenService {
         // Reuse detection: a revoked token being presented again means either a normal replay
         // or a stolen token. Either way, invalidate the whole family so the attacker is locked out.
         if (current.getRevokedAt() != null) {
-            int revoked = repository.revokeAllForUser(current.getUser().getId(), now);
-            log.warn("Refresh token reuse detected for user {}; revoked {} active token(s)",
-                    current.getUser().getId(), revoked);
+            int revoked = repository.revokeAllForProfile(current.getProfile().getId(), now);
+            log.warn("Refresh token reuse detected for profile {}; revoked {} active token(s)",
+                    current.getProfile().getId(), revoked);
             throw new InvalidRefreshTokenException("Refresh token already used");
         }
 
@@ -108,7 +108,7 @@ public class RefreshTokenService {
         }
 
         RefreshToken replacement = RefreshToken.builder()
-                .user(current.getUser())
+                .profile(current.getProfile())
                 .tokenHash(hash(raw))
                 .deviceLabel(deviceLabel != null ? deviceLabel : current.getDeviceLabel())
                 .createdAt(now)
@@ -121,7 +121,7 @@ public class RefreshTokenService {
         current.setReplacedBy(replacement.getId());
         repository.save(current);
 
-        return new RotationResult(current.getUser(), raw, replacement);
+        return new RotationResult(current.getProfile(), raw, replacement);
     }
 
     /** Revoke a single token (logout on one device). No-op if unknown or already revoked. */
@@ -135,10 +135,10 @@ public class RefreshTokenService {
         });
     }
 
-    /** Revoke every active token for a user (logout of all devices / forced sign-out). */
+    /** Revoke every active token for a profile (logout of all devices / forced sign-out). */
     @Transactional
-    public int revokeAllForUser(java.util.UUID userId) {
-        return repository.revokeAllForUser(userId, Instant.now());
+    public int revokeAllForProfile(java.util.UUID profileId) {
+        return repository.revokeAllForProfile(profileId, Instant.now());
     }
 
     private String generateRawToken() {

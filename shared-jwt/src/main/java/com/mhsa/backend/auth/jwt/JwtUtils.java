@@ -109,11 +109,17 @@ public class JwtUtils {
         log.info("JWT configured for HS256 signing");
     }
 
-    public String generateToken(UUID userId, UUID profileId, String email, Role role) {
+    /**
+     * Issues an access token for a profile. {@code sub} is the profile id — the platform's
+     * single account identifier since the users/profiles merge. The redundant {@code profileId}
+     * claim is kept so consumers that read it (therapist-api, social, notification) keep
+     * working without a coordinated deploy.
+     */
+    public String generateToken(UUID profileId, String email, Role role) {
         var builder = Jwts.builder()
-                .setSubject(userId.toString())
+                .setSubject(profileId.toString())
                 .claim("email", email)
-                .claim("profileId", profileId == null ? null : profileId.toString())
+                .claim("profileId", profileId.toString())
                 .claim("role", role == null ? null : role.name())
                 .setIssuer(jwtIssuer)
                 .setAudience(jwtAudience)
@@ -132,18 +138,22 @@ public class JwtUtils {
                 .compact();
     }
 
-    public String getUserIdFromJwtToken(String token) {
-        return parseClaims(token).getSubject();
-    }
-
     public String getEmailFromJwtToken(String token) {
         Object email = parseClaims(token).get("email");
         return email == null ? null : email.toString();
     }
 
+    /**
+     * Reads the profile id, preferring the explicit {@code profileId} claim (present on all
+     * tokens, old and new) and falling back to {@code sub} for tokens that lack it.
+     */
     public UUID getProfileIdFromJwtToken(String token) {
-        Object profileId = parseClaims(token).get("profileId");
-        return profileId == null ? null : UUID.fromString(profileId.toString());
+        Claims claims = parseClaims(token);
+        Object profileId = claims.get("profileId");
+        if (profileId != null) {
+            return UUID.fromString(profileId.toString());
+        }
+        return claims.getSubject() == null ? null : UUID.fromString(claims.getSubject());
     }
 
     public Role getRoleFromJwtToken(String token) {

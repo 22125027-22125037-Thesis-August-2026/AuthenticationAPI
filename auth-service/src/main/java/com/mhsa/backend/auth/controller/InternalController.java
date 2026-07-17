@@ -31,8 +31,8 @@ public class InternalController {
                     ObjectNode summary = objectMapper.createObjectNode();
                     summary.put("profileId", profileId.toString());
                     summary.put("name", profile.getFullName() != null ? profile.getFullName() : "");
-                    summary.put("email", profile.getUser() != null && profile.getUser().getEmail() != null ? profile.getUser().getEmail() : "");
-                    summary.put("role", profile.getUser() != null && profile.getUser().getRole() != null ? profile.getUser().getRole().toString() : "USER");
+                    summary.put("email", profile.getEmail() != null ? profile.getEmail() : "");
+                    summary.put("role", profile.getRole() != null ? profile.getRole().toString() : "USER");
                     summary.put("avatarUrl", profile.getAvatarUrl() != null ? profile.getAvatarUrl() : "");
                     return ResponseEntity.ok(summary);
                 })

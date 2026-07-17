@@ -11,5 +11,9 @@ import com.mhsa.backend.auth.model.Profile;
 @Repository
 public interface ProfileRepository extends JpaRepository<Profile, UUID> {
 
-    Optional<Profile> findByUser_Id(UUID userId);
+    // Tìm account bằng email để đăng nhập
+    Optional<Profile> findByEmail(String email);
+
+    // Kiểm tra email đã tồn tại chưa (khi đăng ký)
+    Boolean existsByEmail(String email);
 }

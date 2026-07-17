@@ -18,13 +18,13 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
     /**
-     * Revoke every still-active token for a user. Used on reuse detection (suspected theft)
+     * Revoke every still-active token for a profile. Used on reuse detection (suspected theft)
      * and for "log out of all devices".
      */
     @Modifying
     @Query("UPDATE RefreshToken t SET t.revokedAt = :now "
-            + "WHERE t.user.id = :userId AND t.revokedAt IS NULL")
-    int revokeAllForUser(@Param("userId") UUID userId, @Param("now") Instant now);
+            + "WHERE t.profile.id = :profileId AND t.revokedAt IS NULL")
+    int revokeAllForProfile(@Param("profileId") UUID profileId, @Param("now") Instant now);
 
     /** Purge rows whose rolling expiry has passed; revoked-but-unexpired rows are kept for audit until they expire. */
     @Modifying

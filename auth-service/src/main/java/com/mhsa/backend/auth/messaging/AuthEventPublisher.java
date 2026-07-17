@@ -1,7 +1,5 @@
 package com.mhsa.backend.auth.messaging;
 
-import java.util.UUID;
-
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -24,18 +22,6 @@ public class AuthEventPublisher {
 
     @org.springframework.beans.factory.annotation.Value("${mhsa.auth.events.exchange:auth.events}")
     private String authEventsExchange;
-
-    public void publishUserDeleted(UUID userId) {
-        String event = String.format("{\"userId\":\"%s\"}", userId);
-        rabbitTemplate.convertAndSend("auth.user.deleted", event);
-        log.info("Published user.deleted event: userId={}", userId);
-    }
-
-    public void publishUserUpdated(UUID userId) {
-        String event = String.format("{\"userId\":\"%s\"}", userId);
-        rabbitTemplate.convertAndSend("auth.user.updated", event);
-        log.info("Published user.updated event: userId={}", userId);
-    }
 
     /**
      * Publishes the enriched grant event to the topic exchange, but only after the surrounding grant
