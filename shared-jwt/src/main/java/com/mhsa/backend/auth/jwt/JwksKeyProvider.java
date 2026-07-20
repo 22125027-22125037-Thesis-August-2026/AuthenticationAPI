@@ -43,6 +43,7 @@ final class JwksKeyProvider {
 
     private static final Logger log = LoggerFactory.getLogger(JwksKeyProvider.class);
     private static final Duration MIN_REFRESH_INTERVAL = Duration.ofSeconds(60);
+    private static final Duration EMPTY_CACHE_RETRY_INTERVAL = Duration.ofSeconds(5);
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(5);
 
@@ -82,8 +83,14 @@ final class JwksKeyProvider {
     }
 
     private synchronized void refreshIfDue() {
+        // With nothing cached this service can validate nothing, so back off far less: the point
+        // of the floor is to stop a consumer hammering Auth over kids it will never recognise,
+        // and a consumer that started before Auth was reachable is a different situation — it
+        // needs to recover in seconds, not spend a minute rejecting every request.
+        Duration floor = keysByKid.isEmpty() ? EMPTY_CACHE_RETRY_INTERVAL : MIN_REFRESH_INTERVAL;
+
         // Re-check inside the lock: while this thread waited, another may have just fetched.
-        if (Instant.now().isBefore(lastFetchAttempt.plus(MIN_REFRESH_INTERVAL))) {
+        if (Instant.now().isBefore(lastFetchAttempt.plus(floor))) {
             return;
         }
         lastFetchAttempt = Instant.now();
