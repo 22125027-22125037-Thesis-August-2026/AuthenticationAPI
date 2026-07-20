@@ -298,8 +298,9 @@ services:
       MHSA_APP_JWTISSUER: mhsa.backend
       MHSA_APP_JWTAUDIENCE: mhsa-api
       MHSA_APP_JWTSIGNINGKID: mhsa.app.jwtSigningKid
-      MHSA_APP_JWTPRIVATEKEY: ${JWT_PRIVATE_KEY}
-      MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
+      # Verification keys are resolved from Auth's published key set by kid. AI never signs,
+      # so it is given no key material — see ai-service/entrypoint.sh.
+      MHSA_APP_JWKSENDPOINT: http://auth-service:8081/internal/v1/.well-known/jwks.json
       SERVICE_TRACKING_URL: http://tracking-service:8084
       SERVICE_AUTH_URL: http://auth-service:8081
       GEMINI_API_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
@@ -358,8 +359,9 @@ services:
       MHSA_APP_JWTISSUER: mhsa.backend
       MHSA_APP_JWTAUDIENCE: mhsa-api
       MHSA_APP_JWTSIGNINGKID: mhsa.app.jwtSigningKid
-      MHSA_APP_JWTPRIVATEKEY: ${JWT_PRIVATE_KEY}
-      MHSA_APP_JWTPUBLICKEY: ${JWT_PUBLIC_KEY}
+      # Verification keys are resolved from Auth's published key set by kid. Tracking never
+      # signs, so it is given no key material — see tracking-service/entrypoint.sh.
+      MHSA_APP_JWKSENDPOINT: http://auth-service:8081/internal/v1/.well-known/jwks.json
       SERVICE_AUTH_URL: http://auth-service:8081
       S3_ENDPOINT: http://minio:9000
       S3_REGION: us-east-1
