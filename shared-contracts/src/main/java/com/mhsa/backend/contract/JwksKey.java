@@ -1,7 +1,5 @@
 package com.mhsa.backend.contract;
 
-import java.util.List;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.AllArgsConstructor;
@@ -32,12 +30,4 @@ public class JwksKey {
 
     @JsonProperty("e")
     private String exponent;
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class JwksResponse {
-        private List<JwksKey> keys;
-    }
 }

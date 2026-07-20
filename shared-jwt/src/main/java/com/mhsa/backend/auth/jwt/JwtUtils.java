@@ -30,8 +30,11 @@ import com.mhsa.backend.contract.JwksKey;
 import com.mhsa.backend.contract.JwksResponse;
 
 import javax.crypto.SecretKey;
+import java.math.BigInteger;
 import java.security.KeyFactory;
 import java.security.interfaces.RSAPublicKey;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 
@@ -57,6 +60,21 @@ public class JwtUtils {
     @Value("${mhsa.app.jwtPublicKey:}")
     private String jwtPublicKey;
 
+    /**
+     * The previous public key, kept published alongside the current one during a rotation
+     * overlap. Optional: unset outside a rotation window.
+     */
+    @Value("${mhsa.app.jwtPreviousPublicKey:}")
+    private String jwtPreviousPublicKey;
+
+    /**
+     * Where to fetch the signing key set from. When set, this service resolves RS256
+     * verification keys by {@code kid} from Auth's published JWKS instead of from a
+     * statically configured public key.
+     */
+    @Value("${mhsa.app.jwksEndpoint:}")
+    private String jwksEndpoint;
+
     @Value("${mhsa.app.jwtExpirationMs}")
     private int jwtExpirationMs;
 
@@ -69,6 +87,9 @@ public class JwtUtils {
     @Value("${mhsa.app.jwtSigningKid:mhsa-key-1}")
     private String jwtSigningKid;
 
+    @Value("${mhsa.app.jwtPreviousSigningKid:}")
+    private String jwtPreviousSigningKid;
+
     @Value("${mhsa.app.jwtAllowHs256Fallback:false}")
     private boolean jwtAllowHs256Fallback;
 
@@ -78,17 +99,44 @@ public class JwtUtils {
     private SecretKey hmacSigningKey;
     private PrivateKey privateSigningKey;
     private PublicKey publicVerificationKey;
+    private PublicKey previousPublicVerificationKey;
+    private JwksKeyProvider jwksKeyProvider;
 
     @PostConstruct
     void initializeKeys() {
         boolean hasPrivate = hasText(jwtPrivateKey);
         boolean hasPublic = hasText(jwtPublicKey);
 
+        if (hasText(jwksEndpoint)) {
+            // Verification keys come from Auth's published key set, selected by the token's
+            // kid. Nothing is fetched here: the first RS256 token triggers the fetch, so this
+            // service still starts when Auth is not up yet.
+            jwksKeyProvider = new JwksKeyProvider(jwksEndpoint, objectMapper);
+            log.info("JWT verification keys will be resolved from JWKS at {}", jwksEndpoint);
+        }
+
         if (hasPrivate && hasPublic) {
             privateSigningKey = parsePrivateKey(jwtPrivateKey);
             publicVerificationKey = parsePublicKey(jwtPublicKey);
+            if (hasText(jwtPreviousPublicKey)) {
+                previousPublicVerificationKey = parsePublicKey(jwtPreviousPublicKey);
+                log.info("JWT rotation overlap active: also publishing previous key id {}",
+                        jwtPreviousSigningKid);
+            }
             signingMode = SigningMode.RS256;
             log.info("JWT configured for RS256 signing with key id {}", jwtSigningKid);
+            return;
+        }
+
+        if (jwksKeyProvider != null && !hasPrivate) {
+            // A pure verifier (no signing material of its own). It cannot mint tokens, which
+            // is correct for every service except Auth.
+            if (hasPublic) {
+                log.warn("Both jwksEndpoint and a static jwtPublicKey are configured; "
+                        + "the static key is ignored in favour of the published key set");
+            }
+            signingMode = SigningMode.RS256;
+            log.info("JWT configured for RS256 verification only, via JWKS");
             return;
         }
 
@@ -127,6 +175,10 @@ public class JwtUtils {
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs));
 
         if (signingMode == SigningMode.RS256) {
+            if (privateSigningKey == null) {
+                throw new IllegalStateException(
+                        "This service verifies tokens but cannot issue them: no RSA private key is configured.");
+            }
             return builder
                     .setHeaderParam("kid", jwtSigningKid)
                     .signWith(privateSigningKey, SignatureAlgorithm.RS256)
@@ -206,29 +258,56 @@ public class JwtUtils {
         return null;
     }
 
+    /**
+     * The public half of the signing key, in JWKS form.
+     *
+     * <p>During a rotation overlap the set carries two keys: the new one and the key it
+     * replaced. Consumers select by {@code kid}, so tokens minted under the old key keep
+     * validating until they expire naturally and nobody is forced to log in again. That
+     * overlap is the whole reason this is a key <em>set</em> and not a single key.
+     */
     public JwksResponse getJwksResponse() {
         if (signingMode != SigningMode.RS256 || publicVerificationKey == null) {
             throw new IllegalStateException("JWKS is only available when using RS256 signing mode");
         }
 
-        RSAPublicKey rsaKey = (RSAPublicKey) publicVerificationKey;
-        String modulus = Base64.getUrlEncoder().withoutPadding()
-                .encodeToString(rsaKey.getModulus().toByteArray());
-        String exponent = Base64.getUrlEncoder().withoutPadding()
-                .encodeToString(rsaKey.getPublicExponent().toByteArray());
+        List<JwksKey> keys = new ArrayList<>();
+        keys.add(toJwksKey(publicVerificationKey, jwtSigningKid));
 
-        JwksKey key = JwksKey.builder()
-                .keyType("RSA")
-                .use("sig")
-                .kid(jwtSigningKid)
-                .algorithm("RS256")
-                .modulus(modulus)
-                .exponent(exponent)
-                .build();
+        if (previousPublicVerificationKey != null && hasText(jwtPreviousSigningKid)) {
+            keys.add(toJwksKey(previousPublicVerificationKey, jwtPreviousSigningKid));
+        }
 
         return JwksResponse.builder()
-                .keys(List.of(key))
+                .keys(keys)
                 .build();
+    }
+
+    private JwksKey toJwksKey(PublicKey key, String kid) {
+        RSAPublicKey rsaKey = (RSAPublicKey) key;
+        return JwksKey.builder()
+                .keyType("RSA")
+                .use("sig")
+                .kid(kid)
+                .algorithm("RS256")
+                .modulus(base64UrlUnsigned(rsaKey.getModulus()))
+                .exponent(base64UrlUnsigned(rsaKey.getPublicExponent()))
+                .build();
+    }
+
+    /**
+     * RFC 7518 §6.3.1 wants {@code n} and {@code e} as unsigned big-endian bytes.
+     * {@link BigInteger#toByteArray()} is two's-complement, so a positive value whose top
+     * bit is set — which an RSA modulus always has — gains a leading {@code 0x00} sign
+     * byte. Left in, it yields a 257-byte modulus for a 2048-bit key; Nimbus tolerates
+     * that, jose4j and python-jose reject it.
+     */
+    private static String base64UrlUnsigned(BigInteger value) {
+        byte[] bytes = value.toByteArray();
+        if (bytes.length > 1 && bytes[0] == 0) {
+            bytes = Arrays.copyOfRange(bytes, 1, bytes.length);
+        }
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     private Claims parseClaims(String token) {
@@ -236,15 +315,11 @@ public class JwtUtils {
         Claims claims;
 
         if ("RS256".equals(algorithm)) {
-            if (publicVerificationKey == null) {
-                throw new JwtException("RS256 token received but RSA public key is not configured");
-            }
             claims = Jwts.parserBuilder()
-                    .setSigningKey(publicVerificationKey)
+                    .setSigningKey(resolveRs256Key(token))
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
-            validateKid(token);
         } else if ("HS256".equals(algorithm)) {
             if (!jwtAllowHs256Fallback) {
                 throw new JwtException("HS256 tokens are disabled");
@@ -287,17 +362,34 @@ public class JwtUtils {
         }
     }
 
-    private void validateKid(String token) {
-        if (!hasText(jwtSigningKid)) {
-            return;
-        }
-
+    /**
+     * Picks the key to verify an RS256 token with.
+     *
+     * <p>In JWKS mode the {@code kid} lookup <em>is</em> the key-id check — a token whose kid
+     * is not in the published set never finds a key. In static mode the kid is compared
+     * against the one key this service was configured with.
+     */
+    private PublicKey resolveRs256Key(String token) {
         Object kidHeader = readHeader(token).get("kid");
         String kid = kidHeader == null ? null : kidHeader.toString();
 
-        if (!jwtSigningKid.equals(kid)) {
+        if (jwksKeyProvider != null) {
+            return jwksKeyProvider.resolve(kid);
+        }
+
+        if (publicVerificationKey == null) {
+            throw new JwtException(
+                    "RS256 token received but neither an RSA public key nor a JWKS endpoint is configured");
+        }
+
+        if (hasText(jwtSigningKid) && !jwtSigningKid.equals(kid)) {
+            if (previousPublicVerificationKey != null && jwtPreviousSigningKid.equals(kid)) {
+                return previousPublicVerificationKey;
+            }
             throw new JwtException("Unknown JWT key id");
         }
+
+        return publicVerificationKey;
     }
 
     private Map<String, Object> readHeader(String token) {
