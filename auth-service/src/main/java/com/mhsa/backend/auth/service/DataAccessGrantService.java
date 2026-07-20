@@ -7,8 +7,10 @@ import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.mhsa.backend.auth.dto.DataAccessGrantResponse;
 import com.mhsa.backend.auth.dto.GrantAccessRequest;
@@ -38,7 +40,9 @@ public class DataAccessGrantService {
         // An unknown/empty token set is a client error, not a silently-stored bad grant.
         String scope = AccessScopes.normalize(request.getAccessScope());
         if (scope == null || !AccessScopes.isValid(request.getAccessScope())) {
-            throw new IllegalArgumentException(
+            // 400, not 500: a bad scope token is the caller's mistake. Without an explicit status
+            // this surfaced as an Internal Server Error, which misreports whose fault it is.
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "accessScope must be a comma-separated set of known tokens (e.g. READ_SLEEP,READ_FOOD or READ_ALL): "
                             + request.getAccessScope());
         }
