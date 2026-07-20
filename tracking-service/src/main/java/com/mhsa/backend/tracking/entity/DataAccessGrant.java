@@ -43,9 +43,11 @@ public class DataAccessGrant {
     @Column(nullable = false, length = 20)
     private GrantStatus status;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "access_scope", nullable = false, length = 20)
-    private AccessScope accessScope;
+    // Comma-separated set of category tokens (see contract.AccessScopes), replicated verbatim from
+    // auth-service — e.g. "READ_SLEEP,READ_FOOD" or "READ_ALL". Stored as text so one grant row can
+    // carry a subset of tracking categories.
+    @Column(name = "access_scope", nullable = false, length = 100)
+    private String accessScope;
 
     @Column(name = "granted_at", nullable = false)
     private Instant grantedAt;

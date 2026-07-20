@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -32,6 +33,12 @@ public class ContextAggregatorService {
             }
 
             return contextData;
+        } catch (HttpClientErrorException.Forbidden e) {
+            // 403 = the user has NOT granted the AI companion access to their tracking data. This is a
+            // normal, expected state (consent is opt-in), not an error: ground on nothing and let the
+            // model chat supportively while it may gently mention that sharing unlocks personalisation.
+            log.info("User {} has not shared tracking data with the AI companion; replying ungrounded", profileId);
+            return buildNotSharedContext();
         } catch (RestClientException e) {
             log.warn("Failed to fetch context from tracking-service for profileId: {}", profileId, e);
             return buildDefaultContext();
@@ -39,6 +46,14 @@ public class ContextAggregatorService {
             log.error("Unexpected error fetching context from tracking-service", e);
             return buildDefaultContext();
         }
+    }
+
+    private String buildNotSharedContext() {
+        return "[USER CONTEXT - NOT SHARED]\n"
+                + "The user has not shared their tracking data (mood, sleep, diet) with you. "
+                + "Do not invent or assume any tracking data. Respond with warmth and general support. "
+                + "You may, at most once and only if it fits naturally, gently let the user know they "
+                + "can share their tracking data in the app for more personalised support — never pressure them.\n";
     }
 
     private String buildDefaultContext() {

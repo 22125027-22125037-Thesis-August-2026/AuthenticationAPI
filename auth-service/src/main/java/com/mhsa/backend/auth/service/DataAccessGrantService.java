@@ -14,10 +14,10 @@ import com.mhsa.backend.auth.dto.DataAccessGrantResponse;
 import com.mhsa.backend.auth.dto.GrantAccessRequest;
 import com.mhsa.backend.auth.dto.GrantStatusResponse;
 import com.mhsa.backend.auth.messaging.GrantChangedEvent;
-import com.mhsa.backend.auth.model.AccessScope;
 import com.mhsa.backend.auth.model.DataAccessGrant;
 import com.mhsa.backend.auth.model.GrantStatus;
 import com.mhsa.backend.auth.repository.DataAccessGrantRepository;
+import com.mhsa.backend.contract.AccessScopes;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,12 +34,21 @@ public class DataAccessGrantService {
 
     @Transactional
     public DataAccessGrantResponse grantAccess(UUID granterProfileId, GrantAccessRequest request) {
+        // Validate and canonicalize the requested scope set (e.g. "read_sleep, READ_FOOD" → "READ_SLEEP,READ_FOOD").
+        // An unknown/empty token set is a client error, not a silently-stored bad grant.
+        String scope = AccessScopes.normalize(request.getAccessScope());
+        if (scope == null || !AccessScopes.isValid(request.getAccessScope())) {
+            throw new IllegalArgumentException(
+                    "accessScope must be a comma-separated set of known tokens (e.g. READ_SLEEP,READ_FOOD or READ_ALL): "
+                            + request.getAccessScope());
+        }
+
         // If a grant already exists between these two profiles, update it in place.
         DataAccessGrant grant = grantRepository
                 .findByGranterProfileIdAndGranteeProfileId(granterProfileId, request.getGranteeProfileId())
                 .map(existing -> {
                     existing.setStatus(GrantStatus.ACTIVE);
-                    existing.setAccessScope(request.getAccessScope());
+                    existing.setAccessScope(scope);
                     existing.setGrantedAt(Instant.now());
                     existing.setExpiresAt(request.getExpiresAt());
                     return existing;
@@ -48,7 +57,7 @@ public class DataAccessGrantService {
                         .granterProfileId(granterProfileId)
                         .granteeProfileId(request.getGranteeProfileId())
                         .status(GrantStatus.ACTIVE)
-                        .accessScope(request.getAccessScope())
+                        .accessScope(scope)
                         .grantedAt(Instant.now())
                         .expiresAt(request.getExpiresAt())
                         .build());
@@ -143,7 +152,7 @@ public class DataAccessGrantService {
                 .build();
     }
 
-    public DataAccessGrantResponse getGrant(UUID granterProfileId, UUID granteeProfileId, AccessScope scope) {
+    public DataAccessGrantResponse getGrant(UUID granterProfileId, UUID granteeProfileId, String scope) {
         return grantRepository
                 .findByGranterProfileIdAndGranteeProfileId(granterProfileId, granteeProfileId)
                 .map(DataAccessGrantResponse::from)

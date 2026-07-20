@@ -3,7 +3,6 @@ package com.mhsa.backend.auth.dto;
 import java.time.Instant;
 import java.util.UUID;
 
-import com.mhsa.backend.auth.model.AccessScope;
 import com.mhsa.backend.auth.model.DataAccessGrant;
 import com.mhsa.backend.auth.model.GrantStatus;
 
@@ -18,7 +17,8 @@ public class DataAccessGrantResponse {
     private UUID granterProfileId;
     private UUID granteeProfileId;
     private GrantStatus status;
-    private AccessScope accessScope;
+    /** Comma-separated set of category tokens (see {@link com.mhsa.backend.contract.AccessScopes}). */
+    private String accessScope;
     private Instant grantedAt;
     private Instant expiresAt;
 

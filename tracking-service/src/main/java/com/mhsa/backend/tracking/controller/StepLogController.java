@@ -43,14 +43,14 @@ public class StepLogController {
     }
 
     @GetMapping("/{profileId}")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canReadCategory(authentication, #profileId, 'READ_STEPS')")
     @Operation(summary = "Get all step logs for a profile")
     public ResponseEntity<List<StepLogResponse>> getAll(@PathVariable UUID profileId) {
         return ResponseEntity.ok(stepLogService.getAllByProfileId(profileId));
     }
 
     @GetMapping("/{profileId}/range")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canReadCategory(authentication, #profileId, 'READ_STEPS')")
     @Operation(summary = "Get step logs for a profile within a date range")
     public ResponseEntity<List<StepLogResponse>> getByDateRange(
             @PathVariable UUID profileId,

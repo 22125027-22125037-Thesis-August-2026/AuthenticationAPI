@@ -64,14 +64,14 @@ public class DiaryEntryController {
     }
 
     @GetMapping("/{profileId}")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canReadCategory(authentication, #profileId, 'READ_JOURNAL')")
     @Operation(summary = "Get all diary entries")
     public ResponseEntity<List<DiaryEntryResponse>> getAll(@PathVariable UUID profileId) {
         return ResponseEntity.ok(diaryEntryService.getAllByProfileId(profileId));
     }
 
     @GetMapping("/{profileId}/{id}")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canReadCategory(authentication, #profileId, 'READ_JOURNAL')")
     @Operation(summary = "Get a diary entry by ID")
     public ResponseEntity<DiaryEntryResponse> getById(@PathVariable UUID profileId, @PathVariable UUID id) {
         return ResponseEntity.ok(diaryEntryService.getById(profileId, id));

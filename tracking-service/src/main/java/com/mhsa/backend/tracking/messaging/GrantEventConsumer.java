@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mhsa.backend.tracking.config.GrantMessagingConfig;
-import com.mhsa.backend.tracking.entity.AccessScope;
 import com.mhsa.backend.tracking.entity.GrantStatus;
 import com.mhsa.backend.tracking.service.GrantReplicaService;
 import com.rabbitmq.client.Channel;
@@ -60,7 +59,7 @@ public class GrantEventConsumer {
 
         GrantEvent event;
         GrantStatus status;
-        AccessScope scope;
+        String scope;
         try {
             String body = new String(message.getBody(), StandardCharsets.UTF_8);
             JsonNode node = objectMapper.readTree(body);
@@ -69,8 +68,9 @@ public class GrantEventConsumer {
                 throw new IllegalArgumentException("missing required fields: " + body);
             }
             status = GrantStatus.valueOf(event.status().trim().toUpperCase(Locale.ROOT));
-            // accessScope is optional on the wire; an unknown value is tolerated (applied as null).
-            scope = parseScopeOrNull(event.accessScope());
+            // accessScope is a CSV set of category tokens; replicated verbatim (a null/blank scope
+            // falls back to a safe default in the replica service).
+            scope = event.accessScope();
         } catch (Exception parseError) {
             log.error("Malformed grant event, dead-lettering: {}", parseError.getMessage());
             channel.basicNack(deliveryTag, false, false);
@@ -94,17 +94,6 @@ public class GrantEventConsumer {
             log.error("Failed to apply grant event (grantId={}, granter={}, grantee={}), dead-lettering",
                     event.grantId(), event.granterProfileId(), event.granteeProfileId(), processingError);
             channel.basicNack(deliveryTag, false, false);
-        }
-    }
-
-    private static AccessScope parseScopeOrNull(String raw) {
-        if (raw == null) {
-            return null;
-        }
-        try {
-            return AccessScope.valueOf(raw.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            return null;
         }
     }
 }

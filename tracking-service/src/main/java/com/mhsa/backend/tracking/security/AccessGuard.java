@@ -16,7 +16,15 @@ public class AccessGuard {
 
     private final DataAccessGrantService dataAccessGrantService;
 
-    public boolean canReadTrackingData(Authentication auth, UUID profileId) {
+    /**
+     * Whether the caller may read the owner's data for a specific tracking category.
+     *
+     * <p>Allowed when the caller <em>is</em> the owner, or holds an ACTIVE, unexpired grant from the
+     * owner whose scope set covers {@code categoryToken} (e.g. {@code READ_SLEEP}; a {@code READ_ALL}
+     * grant covers every category). Referenced from controllers as
+     * {@code @accessGuard.canReadCategory(authentication, #profileId, 'READ_SLEEP')}.
+     */
+    public boolean canReadCategory(Authentication auth, UUID profileId, String categoryToken) {
         if (auth == null || auth.getPrincipal() == null) {
             return false;
         }
@@ -28,7 +36,7 @@ public class AccessGuard {
                 if (currentProfileId.equals(profileId)) {
                     return true;
                 }
-                return dataAccessGrantService.hasDelegatedAccess(profileId, currentProfileId);
+                return dataAccessGrantService.hasScopedAccess(profileId, currentProfileId, categoryToken);
             }
         }
 

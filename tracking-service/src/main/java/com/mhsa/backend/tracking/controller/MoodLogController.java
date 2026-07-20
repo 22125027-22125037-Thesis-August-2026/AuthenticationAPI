@@ -41,14 +41,14 @@ public class MoodLogController {
     }
 
     @GetMapping("/{profileId}")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canReadCategory(authentication, #profileId, 'READ_MOOD')")
     @Operation(summary = "Get all mood logs")
     public ResponseEntity<List<MoodLogResponse>> getAll(@PathVariable UUID profileId) {
         return ResponseEntity.ok(moodLogService.getAllByProfileId(profileId));
     }
 
     @GetMapping("/{profileId}/{id}")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canReadCategory(authentication, #profileId, 'READ_MOOD')")
     @Operation(summary = "Get a mood log by ID")
     public ResponseEntity<MoodLogResponse> getById(@PathVariable UUID profileId, @PathVariable UUID id) {
         return ResponseEntity.ok(moodLogService.getById(profileId, id));

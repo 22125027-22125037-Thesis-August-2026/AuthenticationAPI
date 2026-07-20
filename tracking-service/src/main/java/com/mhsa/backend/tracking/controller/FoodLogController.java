@@ -44,7 +44,7 @@ public class FoodLogController {
     }
 
     @GetMapping("/{profileId}")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canReadCategory(authentication, #profileId, 'READ_FOOD')")
     @Operation(summary = "Get food entries for a profile or date range")
     public ResponseEntity<List<FoodLogResponse>> getFoodEntries(
             @PathVariable UUID profileId,
@@ -54,7 +54,7 @@ public class FoodLogController {
     }
 
     @GetMapping("/{profileId}/{id}")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canReadCategory(authentication, #profileId, 'READ_FOOD')")
     @Operation(summary = "Get a food log by ID")
     public ResponseEntity<FoodLogResponse> getById(@PathVariable UUID profileId, @PathVariable UUID id) {
         return ResponseEntity.ok(foodLogService.getById(profileId, id));

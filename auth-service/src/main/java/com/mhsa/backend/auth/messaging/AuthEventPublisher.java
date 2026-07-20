@@ -94,7 +94,7 @@ public class AuthEventPublisher {
         sb.append(',');
         appendString(sb, "status", e.status() == null ? null : e.status().name());
         sb.append(',');
-        appendString(sb, "accessScope", e.accessScope() == null ? null : e.accessScope().name());
+        appendString(sb, "accessScope", e.accessScope());
         sb.append(',');
         appendString(sb, "grantedAt", e.grantedAt() == null ? null : e.grantedAt().toString());
         sb.append(',');

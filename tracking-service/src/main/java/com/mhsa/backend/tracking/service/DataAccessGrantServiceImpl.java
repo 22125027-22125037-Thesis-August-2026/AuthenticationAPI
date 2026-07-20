@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.mhsa.backend.contract.AccessScopes;
 import com.mhsa.backend.tracking.dto.DataAccessGrantRequest;
 import com.mhsa.backend.tracking.dto.DataAccessGrantResponse;
 import com.mhsa.backend.tracking.entity.DataAccessGrant;
@@ -70,6 +71,16 @@ public class DataAccessGrantServiceImpl implements DataAccessGrantService {
         }
         return dataAccessGrantRepository.findActiveGrant(targetProfileId, accessorProfileId, Instant.now())
                 .isPresent();
+    }
+
+    @Override
+    public boolean hasScopedAccess(UUID targetProfileId, UUID accessorProfileId, String requiredScopeToken) {
+        if (targetProfileId == null || accessorProfileId == null || requiredScopeToken == null) {
+            return false;
+        }
+        return dataAccessGrantRepository.findActiveGrant(targetProfileId, accessorProfileId, Instant.now())
+                .map(grant -> AccessScopes.allows(grant.getAccessScope(), requiredScopeToken))
+                .orElse(false);
     }
 
     @Override

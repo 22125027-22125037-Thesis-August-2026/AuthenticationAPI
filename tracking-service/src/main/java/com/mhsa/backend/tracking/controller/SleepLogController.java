@@ -41,14 +41,14 @@ public class SleepLogController {
     }
 
     @GetMapping("/{profileId}")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canReadCategory(authentication, #profileId, 'READ_SLEEP')")
     @Operation(summary = "Get all sleep logs")
     public ResponseEntity<List<SleepLogResponse>> getAll(@PathVariable UUID profileId) {
         return ResponseEntity.ok(sleepLogService.getAllByProfileId(profileId));
     }
 
     @GetMapping("/{profileId}/{id}")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canReadCategory(authentication, #profileId, 'READ_SLEEP')")
     @Operation(summary = "Get a sleep log by ID")
     public ResponseEntity<SleepLogResponse> getById(@PathVariable UUID profileId, @PathVariable UUID id) {
         return ResponseEntity.ok(sleepLogService.getById(profileId, id));

@@ -3,7 +3,6 @@ package com.mhsa.backend.auth.messaging;
 import java.time.Instant;
 import java.util.UUID;
 
-import com.mhsa.backend.auth.model.AccessScope;
 import com.mhsa.backend.auth.model.DataAccessGrant;
 import com.mhsa.backend.auth.model.GrantStatus;
 
@@ -22,7 +21,7 @@ public record GrantChangedEvent(
         UUID granterProfileId,
         UUID granteeProfileId,
         GrantStatus status,
-        AccessScope accessScope,
+        String accessScope,
         Instant grantedAt,
         Instant expiresAt) {
 

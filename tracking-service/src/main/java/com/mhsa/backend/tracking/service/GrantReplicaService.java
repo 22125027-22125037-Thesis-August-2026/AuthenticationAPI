@@ -10,7 +10,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.mhsa.backend.tracking.entity.AccessScope;
+import com.mhsa.backend.contract.AccessScopes;
 import com.mhsa.backend.tracking.entity.DataAccessGrant;
 import com.mhsa.backend.tracking.entity.GrantStatus;
 import com.mhsa.backend.tracking.messaging.GrantSnapshotItem;
@@ -47,7 +47,7 @@ public class GrantReplicaService {
      */
     @Transactional
     public ApplyResult applyEvent(UUID grantId, UUID granterProfileId, UUID granteeProfileId,
-                                  GrantStatus status, AccessScope accessScope,
+                                  GrantStatus status, String accessScope,
                                   Instant grantedAt, Instant expiresAt, Instant occurredAt) {
         DataAccessGrant row = find(grantId, granterProfileId, granteeProfileId);
 
@@ -64,7 +64,7 @@ public class GrantReplicaService {
                     .granterProfileId(granterProfileId)
                     .granteeProfileId(granteeProfileId)
                     .grantedAt(grantedAt != null ? grantedAt : occurredAt)
-                    .accessScope(accessScope != null ? accessScope : AccessScope.READ_JOURNAL)
+                    .accessScope(accessScope != null ? accessScope : AccessScopes.READ_JOURNAL)
                     .build();
         } else {
             if (granterProfileId != null) {
@@ -112,7 +112,7 @@ public class GrantReplicaService {
             if (status == null) {
                 continue;
             }
-            AccessScope scope = parseScope(item.accessScope());
+            String scope = item.accessScope();
 
             DataAccessGrant row = find(item.grantId(), item.granterProfileId(), item.granteeProfileId());
             if (row == null) {
@@ -121,7 +121,7 @@ public class GrantReplicaService {
                         .granterProfileId(item.granterProfileId())
                         .granteeProfileId(item.granteeProfileId())
                         .grantedAt(item.grantedAt() != null ? item.grantedAt() : now)
-                        .accessScope(scope != null ? scope : AccessScope.READ_JOURNAL)
+                        .accessScope(scope != null ? scope : AccessScopes.READ_JOURNAL)
                         .build();
             } else {
                 if (item.granterProfileId() != null) {
@@ -177,17 +177,6 @@ public class GrantReplicaService {
         }
         try {
             return GrantStatus.valueOf(raw.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
-
-    private static AccessScope parseScope(String raw) {
-        if (raw == null) {
-            return null;
-        }
-        try {
-            return AccessScope.valueOf(raw.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return null;
         }

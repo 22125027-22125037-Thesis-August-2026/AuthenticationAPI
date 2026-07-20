@@ -43,14 +43,14 @@ public class BreathingLogController {
     }
 
     @GetMapping("/{profileId}")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canReadCategory(authentication, #profileId, 'READ_BREATHING')")
     @Operation(summary = "Get all breathing logs for a profile")
     public ResponseEntity<List<BreathingLogResponse>> getAll(@PathVariable UUID profileId) {
         return ResponseEntity.ok(breathingLogService.getAllByProfileId(profileId));
     }
 
     @GetMapping("/{profileId}/range")
-    @PreAuthorize("@accessGuard.canReadTrackingData(authentication, #profileId)")
+    @PreAuthorize("@accessGuard.canReadCategory(authentication, #profileId, 'READ_BREATHING')")
     @Operation(summary = "Get breathing logs for a profile within a date range")
     public ResponseEntity<List<BreathingLogResponse>> getByDateRange(
             @PathVariable UUID profileId,

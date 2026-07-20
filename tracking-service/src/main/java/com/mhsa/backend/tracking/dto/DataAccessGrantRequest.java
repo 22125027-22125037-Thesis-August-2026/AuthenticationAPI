@@ -3,8 +3,6 @@ package com.mhsa.backend.tracking.dto;
 import java.time.Instant;
 import java.util.UUID;
 
-import com.mhsa.backend.tracking.entity.AccessScope;
-
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,8 +18,9 @@ public class DataAccessGrantRequest {
     @NotNull(message = "granteeProfileId is required")
     private UUID granteeProfileId;
 
+    /** Comma-separated set of category tokens (see {@link com.mhsa.backend.contract.AccessScopes}). */
     @NotNull(message = "accessScope is required")
-    private AccessScope accessScope;
+    private String accessScope;
 
     private Instant expiresAt;
 }
