@@ -1,0 +1,204 @@
+====================================================================
+ HUONG DAN SU DUNG (BUILD & RUN GUIDE)
+ Project: thesis-backend - MHSA microservices backend
+====================================================================
+
+This file explains how to compile and run the project. Complete
+HuongDanCaiDat.txt first (install Docker, create .env from
+.env.example, fill in the keys). Everything below is run from a
+terminal at the repository root.
+
+--------------------------------------------------------------------
+1. CREATE THE SHARED DOCKER NETWORK (one-time, required)
+--------------------------------------------------------------------
+
+docker-compose.yml joins the API gateway and auth-service to an
+external network used for integration with sibling services in the
+larger deployment. Compose will fail to start unless it already
+exists, so create it once before the first run:
+
+    docker network create umatter-shared
+
+(If it already exists, this command just prints an error you can
+ignore: "network with name umatter-shared already exists".)
+
+--------------------------------------------------------------------
+2. BUILD AND RUN EVERYTHING
+--------------------------------------------------------------------
+
+    docker compose up --build -d
+
+This single command:
+  - downloads the required Docker base images,
+  - compiles all 6 Maven modules (shared-jwt, shared-contracts,
+    auth-service, ai-service, tracking-service, dashboard-service)
+    inside temporary build containers (see each service's
+    Dockerfile.build) - no local JDK/Maven required,
+  - starts all 12 containers: nginx, 3x Postgres, Redis, RabbitMQ,
+    MinIO (+ its bucket-init job), pgAdmin, and the 4 microservices,
+  - runs Flyway database migrations automatically on each service's
+    first boot.
+
+The first run takes roughly 5-15 minutes depending on your internet
+connection (downloading images + Maven dependencies). Subsequent runs
+are much faster because Docker caches all of that.
+
+To watch the logs while it starts:
+
+    docker compose logs -f
+
+Press Ctrl+C to stop watching logs (the containers keep running).
+
+--------------------------------------------------------------------
+3. VERIFY IT IS RUNNING
+--------------------------------------------------------------------
+
+    docker compose ps
+
+All containers should show "running" (or "healthy" once their
+healthcheck passes - allow up to ~60 seconds after start for the
+Java services).
+
+Gateway health check:
+
+    curl http://localhost:8080/health
+    -> healthy
+
+If a service is stuck "unhealthy", check its logs, e.g.:
+
+    docker compose logs auth-service
+
+--------------------------------------------------------------------
+4. SERVICE / PORT REFERENCE
+--------------------------------------------------------------------
+
+  API gateway (nginx)         http://localhost:8080
+  auth-service (direct)       http://localhost:8081
+  dashboard-service (direct)  http://localhost:8083
+  tracking-service (direct)   http://localhost:8084
+  ai-service (direct)         http://localhost:8087
+
+  PostgreSQL - auth_db        localhost:5431
+  PostgreSQL - tracking_db    localhost:5434
+  PostgreSQL - ai_db          localhost:5437
+  Redis                       localhost:6371
+  RabbitMQ (AMQP)             localhost:5671
+  RabbitMQ management UI      http://localhost:15671  (guest / guest)
+  MinIO API                   http://localhost:9000
+  MinIO console                http://localhost:9001  (minioadmin / minioadmin)
+  pgAdmin                     http://localhost:5051   (admin@example.com / admin)
+
+Normally you talk to the system only through the gateway (port 8080);
+the direct service ports are exposed for debugging/grading convenience.
+
+Gateway route map:
+  /api/v1/auth/...        -> auth-service       (accounts, login, JWT)
+  /api/v1/patients/...    -> auth-service        (profile lookups)
+  /api/v1/ai/...          -> ai-service          (AI companion chat)
+  /api/v1/tracking/...    -> tracking-service    (mood/habit tracking, media)
+  /api/v1/dashboard/...   -> dashboard-service   (read-only aggregated views)
+
+  /api/v1/therapist/...   -> 502 (therapist-api lives in a separate repo,
+  /api/v1/social/...         out of scope for this submission)
+  /api/v1/notification/...
+
+--------------------------------------------------------------------
+5. API DOCUMENTATION (Swagger / OpenAPI)
+--------------------------------------------------------------------
+
+Each service exposes interactive Swagger UI directly (not through the
+gateway):
+
+    http://localhost:8081/swagger-ui.html   (auth-service)
+    http://localhost:8084/swagger-ui.html   (tracking-service)
+    http://localhost:8087/swagger-ui.html   (ai-service)
+    http://localhost:8083/swagger-ui.html   (dashboard-service)
+
+--------------------------------------------------------------------
+6. WORKED EXAMPLE: register -> login -> call a protected endpoint
+--------------------------------------------------------------------
+
+All requests below go through the gateway (port 8080).
+
+6.1 Register a new account (role is one of: TEEN, PARENT, THERAPIST, ADMIN)
+
+    curl -X POST http://localhost:8080/api/v1/auth/register ^
+      -H "Content-Type: application/json" ^
+      -d "{\"fullName\":\"Test User\",\"email\":\"test@example.com\",\"password\":\"Passw0rd!\",\"role\":\"TEEN\"}"
+
+    (On Linux/macOS bash, use single quotes and drop the ^ line
+    continuations, e.g.:
+      curl -X POST http://localhost:8080/api/v1/auth/register \
+        -H "Content-Type: application/json" \
+        -d '{"fullName":"Test User","email":"test@example.com","password":"Passw0rd!","role":"TEEN"}'
+    )
+
+6.2 Log in to obtain a JWT access token
+
+    curl -X POST http://localhost:8080/api/v1/auth/login ^
+      -H "Content-Type: application/json" ^
+      -d "{\"email\":\"test@example.com\",\"password\":\"Passw0rd!\"}"
+
+    The response contains an "accessToken" field. Copy it.
+
+6.3 Call an authenticated endpoint with the token
+
+    curl http://localhost:8080/api/v1/auth/me ^
+      -H "Authorization: Bearer <accessToken>"
+
+The database migrations also seed a set of ready-made development
+accounts (see auth-service/src/main/resources/db/migration/
+V2__seed_development_testing_accounts.sql) if you prefer to log in
+with an existing account instead of registering a new one.
+
+--------------------------------------------------------------------
+7. STOPPING / RESETTING
+--------------------------------------------------------------------
+
+Stop all containers (keeps data):
+
+    docker compose down
+
+Stop all containers and DELETE all data volumes (databases, MinIO
+storage) for a completely clean slate:
+
+    docker compose down -v
+
+--------------------------------------------------------------------
+8. TROUBLESHOOTING
+--------------------------------------------------------------------
+
+- "network umatter-shared not found" when running `docker compose up`:
+  you skipped step 1. Run `docker network create umatter-shared`.
+
+- "port is already allocated": something else on your machine is
+  already using one of the ports listed in section 4 (commonly 8080,
+  5432-family ports, or 6379/6371 for Redis). Stop that process, or
+  edit the host-side port numbers in docker-compose.yml.
+
+- auth-service fails to start / logs show "Invalid JWT private key
+  configuration": JWT_PRIVATE_KEY / JWT_PUBLIC_KEY in .env are missing
+  or malformed. Re-check step 4 of HuongDanCaiDat.txt - make sure you
+  copied only the base64 body, not extra text.
+
+- A service is "unhealthy" or restarting in a loop for more than a
+  couple of minutes: check its logs (`docker compose logs <service>`).
+  On a machine with less than 8 GB free RAM, the JVM services (1 GB
+  cap each) may struggle to start concurrently - try closing other
+  applications, or start the databases first (`docker compose up -d
+  postgres-auth postgres-ai postgres-tracking redis rabbitmq minio`)
+  and the Java services a few seconds later.
+
+- "Flyway validate failed" / checksum mismatch after re-pulling this
+  project on top of an older run: your Postgres volumes still hold
+  data from a previous version of the migrations. Reset with
+  `docker compose down -v` and start again.
+
+- AI companion chat endpoints return an error: GEMINI_API_KEY in .env
+  is missing, invalid, or has hit its quota. Every other feature is
+  unaffected.
+
+- First `docker compose up --build` seems to hang: it is downloading
+  Docker images and Maven dependencies, which needs a working internet
+  connection and can take several minutes the first time. Watch
+  progress with `docker compose logs -f`.

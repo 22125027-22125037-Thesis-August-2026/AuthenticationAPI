@@ -1,0 +1,163 @@
+====================================================================
+ HUONG DAN CAI DAT (INSTALLATION GUIDE)
+ Project: thesis-backend - MHSA microservices backend
+====================================================================
+
+This file describes the tools, environment, and libraries needed to
+build and run this project. See HuongDanSuDung.txt for the actual
+build/run commands.
+
+--------------------------------------------------------------------
+1. REQUIRED TOOLS
+--------------------------------------------------------------------
+
+- Docker Desktop 4.x or later, with Docker Compose v2
+  (Compose is bundled with Docker Desktop; no separate install needed)
+  https://www.docker.com/products/docker-desktop/
+
+- Git (to clone/extract the source and inspect history if needed)
+
+That is all that is strictly required. The entire stack (4 Spring Boot
+microservices + PostgreSQL + Redis + RabbitMQ + MinIO + nginx + pgAdmin)
+is built and run through Docker Compose, so a local JDK/Maven install
+is optional.
+
+Optional, only if you want to compile a single module outside Docker
+(e.g. in an IDE) or run tests locally:
+  - JDK 17 (Eclipse Temurin recommended: https://adoptium.net/)
+  - Maven 3.9+ (https://maven.apache.org/download.cgi)
+
+Note: the Maven wrapper (mvnw/mvnw.cmd) is intentionally NOT included
+in this submission because it is non-functional without the wrapper
+jar, and the project does not need it — the Docker build compiles the
+project for you (see Dockerfile.build in each service and build.sh).
+
+--------------------------------------------------------------------
+2. HARDWARE / OS
+--------------------------------------------------------------------
+
+- Any OS that runs Docker Desktop (Windows 10/11, macOS, Linux).
+- At least 8 GB of RAM free. The stack runs 12 containers; each of the
+  4 Java services is capped at 1 GB (docker-compose.yml: mem_limit: 1g,
+  JAVA_TOOL_OPTIONS -XX:MaxRAMPercentage=45).
+- A few GB of free disk space for Docker images and volumes.
+- Internet access for the FIRST build (to download Docker base images
+  and Maven dependencies). Not required afterwards, since Docker caches
+  everything locally.
+
+--------------------------------------------------------------------
+3. LIBRARIES / DEPENDENCIES - NOT BUNDLED IN THIS SUBMISSION
+--------------------------------------------------------------------
+
+Per submission requirements, no third-party libraries are included in
+this archive. All dependencies are declared as Maven coordinates in
+each module's pom.xml and are downloaded automatically and
+automatically from Maven Central the first time you build the project
+(via `docker compose up --build`, see HuongDanSuDung.txt). No manual
+download or installation step is needed.
+
+Project structure (Maven multi-module, parent pom.xml, Java 17,
+Spring Boot 4.0.2):
+  - shared-jwt          shared library: JWT signing/verification
+  - shared-contracts    shared library: cross-service DTOs/events
+  - auth-service        port 8081 - accounts, JWT issuance, JWKS
+  - ai-service          port 8087 - AI companion (Gemini)
+  - tracking-service    port 8084 - mood/habit tracking, media
+  - dashboard-service   port 8083 - read-only aggregation BFF
+
+Principal third-party libraries used (resolved automatically):
+  - org.springframework.boot:spring-boot-starter-web / -webmvc
+  - org.springframework.boot:spring-boot-starter-security
+  - org.springframework.boot:spring-boot-starter-data-jpa
+  - org.springframework.boot:spring-boot-starter-data-redis
+  - org.springframework.boot:spring-boot-starter-amqp
+  - org.springframework.boot:spring-boot-starter-validation
+  - org.springframework.boot:spring-boot-starter-actuator
+  - org.flywaydb:flyway-core + flyway-database-postgresql (DB migrations)
+  - io.jsonwebtoken:jjwt-api / -impl / -jackson  (0.11.5) (JWT)
+  - org.springdoc:springdoc-openapi-starter-webmvc-ui (2.3.0) (Swagger UI)
+  - software.amazon.awssdk:s3 (2.25.0) (S3-compatible client for MinIO)
+  - org.postgresql:postgresql (JDBC driver)
+  - org.projectlombok:lombok
+  - JUnit 5 / spring-boot-starter-test (tests)
+
+Docker images pulled for supporting infrastructure (also automatic):
+  - postgres:16-alpine        (x3 - one database per service that needs one)
+  - redis:7-alpine
+  - rabbitmq:3.12-management-alpine
+  - minio/minio:latest, minio/mc:latest
+  - nginx:1.25-alpine         (API gateway)
+  - dpage/pgadmin4:latest     (optional DB admin UI)
+  - maven:3.9-eclipse-temurin-17 (build stage only, not part of the running stack)
+  - eclipse-temurin:17-jre-alpine (runtime base for each service image)
+
+--------------------------------------------------------------------
+4. CONFIGURATION - ENVIRONMENT VARIABLES (.env)
+--------------------------------------------------------------------
+
+The project reads secrets/config from a ".env" file at the repo root,
+which is NOT included in this submission (it holds real secrets and
+must never be committed/shared). A template IS included: ".env.example".
+
+Setup:
+  1. Copy .env.example to .env
+       Windows:  copy .env.example .env
+       Linux/macOS: cp .env.example .env
+  2. Fill in the values below.
+
+4.1 JWT signing keypair (REQUIRED - auth-service will not start without it)
+  auth-service is the only service that signs JWTs; it needs an RSA
+  keypair. The other services only verify tokens using auth-service's
+  published public key (JWKS), so they need no key material at all.
+
+  Generate a keypair with OpenSSL (bundled with Git for Windows, or
+  install via https://slproweb.com/products/Win32OpenSSL.html):
+
+      openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out private.pem
+      openssl rsa -in private.pem -pubout -out public.pem
+
+  Open private.pem and public.pem, and copy ONLY the base64 body
+  (everything between the ----BEGIN...---- and ----END...---- lines,
+  whitespace/newlines do not matter - the app strips them) into:
+
+      JWT_PRIVATE_KEY=<base64 body of private.pem>
+      JWT_PUBLIC_KEY=<base64 body of public.pem>
+
+  Leave JWT_SIGNING_KID, JWT_ISSUER, JWT_AUDIENCE, JWT_ALLOW_HS256_FALLBACK
+  at their .env.example defaults unless you have a reason to change them.
+
+4.2 Gemini API key (needed only for the AI companion feature)
+  ai-service calls Google's Gemini API. Get a free key at
+  https://aistudio.google.com/app/apikey and set:
+
+      GEMINI_API_KEY=<your key>
+
+  Without it, every other feature (auth, tracking, dashboard) still
+  works; only AI-companion chat endpoints will fail.
+
+4.3 Chat encryption key (used by ai-service to encrypt chat messages at rest)
+      MHSA_CHAT_AES_KEY=<any string, exactly 32 bytes/characters>
+  If left unset, the service falls back to a well-known development
+  default - fine for local grading, not for anything else.
+
+4.4 Media URL base (optional)
+      S3_PUBLIC_ENDPOINT=http://localhost:8080
+  This is already the default in .env.example and matches the local
+  nginx gateway, so media (photo/audio) links returned by the API work
+  out of the box. Only change it if you deploy behind a different host.
+
+--------------------------------------------------------------------
+5. DEFAULT CREDENTIALS (local development stack only)
+--------------------------------------------------------------------
+
+These are fixed in docker-compose.yml for local development and are
+not secrets to protect - they only exist inside your own Docker network:
+
+  PostgreSQL (all 3 databases): user "postgres", password "postgres"
+  RabbitMQ:                     user "guest",    password "guest"
+  MinIO:                        user "minioadmin", password "minioadmin"
+  pgAdmin login:                admin@example.com / admin
+
+--------------------------------------------------------------------
+See HuongDanSuDung.txt for how to build, run, and verify the project.
+--------------------------------------------------------------------

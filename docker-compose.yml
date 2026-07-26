@@ -370,8 +370,10 @@ services:
       S3_SECRET_KEY: minioadmin
       S3_PATH_STYLE_ACCESS: "true"
       # Public gateway base used for presigned media URLs (nginx proxies /mhsa-media/ to MinIO).
-      # The internal minio:9000 host is unreachable from mobile devices.
-      S3_PUBLIC_ENDPOINT: https://umatter-apcs.duckdns.org
+      # The internal minio:9000 host is unreachable from mobile devices. Defaults to the local
+      # gateway so this works out of the box; override S3_PUBLIC_ENDPOINT in .env for a real
+      # deployment (e.g. https://umatter-apcs.duckdns.org).
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:8080}
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_MHSA_BACKEND: INFO
     ports:

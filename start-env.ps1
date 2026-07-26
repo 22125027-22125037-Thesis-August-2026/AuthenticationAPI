@@ -63,4 +63,4 @@ Write-Host "Docker is ready!" -ForegroundColor Green
 Write-Host "Starting Services (Postgres, Redis, RabbitMQ & pgAdmin)..." -ForegroundColor Cyan
 docker-compose up -d
 
-Write-Host "Environment is ready! You can run 'mvnw spring-boot:run' now." -ForegroundColor Green
+Write-Host "Environment is ready! You can run 'docker compose up --build' now." -ForegroundColor Green

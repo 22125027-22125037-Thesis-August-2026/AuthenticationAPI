@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(docker run *)",
-      "Bash(docker-compose logs *)"
-    ]
-  }
-}
