@@ -3,10 +3,6 @@
 This is the Backend API for the **Mental Health Support Application** (Thesis Project).
 Built with **Java Spring Boot 4.0** using a **Microservices Architecture**, powered by **PostgreSQL**, **Redis**, **RabbitMQ**, **MinIO**, and **Docker Compose**.
 
-> For the assignment submission, see **HuongDanCaiDat.txt** (installation/environment) and
-> **HuongDanSuDung.txt** (build & run) at the repo root — they are the authoritative,
-> verified-against-the-code guides. This README is a higher-level overview.
-
 ---
 
 ## 📋 Table of Contents
@@ -30,15 +26,14 @@ Built with **Java Spring Boot 4.0** using a **Microservices Architecture**, powe
 
 ```powershell
 cd d:\StudyFiles\Thesis\thesis-backend
-docker network create umatter-shared   # one-time; compose depends on this external network
-docker compose up --build -d
+docker-compose up -d
 ```
 
-**Wait a couple of minutes** for all services to become healthy, then verify:
+**Wait 2-3 minutes** for all services to become healthy, then verify:
 
 ```powershell
-docker compose ps
-# All 12 containers should show "running" (healthy once their healthcheck passes)
+docker-compose ps
+# All 11 containers should show "healthy" status
 ```
 
 **Test the API:**
@@ -61,17 +56,17 @@ That's it! The backend is fully operational. No need to run Maven, build JARs, o
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ├─ /api/v1/auth/*      → auth-service (8081)              │
-│  ├─ /api/v1/ai/*        → ai-service (8087)                │
-│  ├─ /api/v1/tracking/*  → tracking-service (8084)          │
-│  └─ /api/v1/dashboard/* → dashboard-service (8083)         │
+│  ├─ /api/v1/ai/*        → ai-service (8082)                │
+│  ├─ /api/v1/tracking/*  → tracking-service (8083)          │
+│  └─ /api/v1/dashboard/* → dashboard-service (8084)         │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 
 Microservices (4):
 ├── auth-service:8081           (User authentication, profiles)
-├── ai-service:8087             (AI chat, Gemini integration)
-├── tracking-service:8084       (Mood, sleep, food, diary logs)
-└── dashboard-service:8083      (BFF - aggregates all services)
+├── ai-service:8082             (AI chat, Gemini integration)
+├── tracking-service:8083       (Mood, sleep, food, diary logs)
+└── dashboard-service:8084      (BFF - aggregates all services)
 
 Shared Libraries (2):
 ├── shared-jwt                  (JWT utilities, security)
@@ -100,12 +95,10 @@ Infrastructure (5):
 
 | Requirement | Version | Download |
 |---|---|---|
+| **Java JDK** | 21+ | [Download](https://www.oracle.com/java/technologies/downloads/#java21) |
 | **Docker Desktop** | Latest | [Download](https://www.docker.com/products/docker-desktop/) |
 | **Docker Compose** | 2.0+ | (Included in Docker Desktop) |
 | **Git** | Any | [Download](https://git-scm.com/) |
-| **Java JDK** (optional, only for local builds outside Docker) | 17 | [Adoptium Temurin](https://adoptium.net/) |
-
-The Docker build compiles the project for you — a local JDK/Maven install is not required.
 
 ---
 
@@ -120,28 +113,27 @@ git clone <repo-url>
 cd d:\StudyFiles\Thesis\thesis-backend
 ```
 
-#### Step 2: Create the shared network (one-time) and start all services
+#### Step 2: Start All Services
 
 ```powershell
-docker network create umatter-shared
-docker compose up --build -d
+docker-compose up -d
 ```
 
 This command:
-- Compiles all 6 Maven modules inside the build images (see each service's `Dockerfile.build`)
+- Builds JAR files (Maven)
 - Creates Docker images
-- Starts **12 containers** (4 microservices + 8 infrastructure/admin containers)
-- Runs Flyway database migrations and health checks automatically
+- Starts **11 containers** (4 microservices + 7 infrastructure)
+- Runs health checks automatically
 
 #### Step 3: Verify Deployment
 
 ```powershell
 # Check container status
-docker compose ps
+docker-compose ps
 
 # View service logs
-docker compose logs -f auth-service
-docker compose logs -f tracking-service
+docker-compose logs -f auth-service
+docker-compose logs -f tracking-service
 ```
 
 #### Step 4: Test Health Endpoints
@@ -152,31 +144,40 @@ curl http://localhost:8080/health
 
 # Individual services
 curl http://localhost:8081/actuator/health      # auth
-curl http://localhost:8087/actuator/health      # ai
-curl http://localhost:8084/actuator/health      # tracking
-curl http://localhost:8083/api/v1/dashboard/health  # dashboard
+curl http://localhost:8082/actuator/health      # ai
+curl http://localhost:8083/actuator/health      # tracking
+curl http://localhost:8084/api/v1/dashboard/health  # dashboard
 ```
+
+### Production Deployment (Cloud VPS)
+
+See **DEPLOYMENT.md** for:
+- Ubuntu VPS setup with Docker
+- Nginx reverse proxy with SSL
+- Let's Encrypt SSL certificates
+- Automated backup strategy
+- Kubernetes deployment manifests
 
 ### Common Docker Commands
 
 ```powershell
 # Start services
-docker compose up -d
+docker-compose up -d
 
 # Stop services
-docker compose down
+docker-compose down
 
 # Stop and remove all data (⚠️ Careful!)
-docker compose down -v
+docker-compose down -v
 
 # Rebuild after code changes
-docker compose up -d --build
+docker-compose up -d --build
 
 # View logs
-docker compose logs -f [service-name]
+docker-compose logs -f [service-name]
 
 # Restart a single service
-docker compose restart auth-service
+docker-compose restart auth-service
 ```
 
 ---
@@ -188,22 +189,22 @@ docker compose restart auth-service
 | Service | Port | Purpose | Database |
 |---------|------|---------|----------|
 | **Nginx Gateway** | 8080 | API entry point | N/A |
-| **Auth Service** | 8081 | User auth, profiles, grants | auth_db (host port 5431) |
-| **Dashboard Service** | 8083 | BFF - data aggregation | N/A (stateless) |
-| **Tracking Service** | 8084 | Health tracking (mood, sleep, food, diary) | tracking_db (host port 5434) |
-| **AI Service** | 8087 | Gemini AI chatbot | ai_db (host port 5437) |
+| **Auth Service** | 8081 | User auth, profiles, grants | auth_db (5432) |
+| **AI Service** | 8082 | Gemini AI chatbot | ai_db (5433) |
+| **Tracking Service** | 8083 | Health tracking (mood, sleep, food, diary) | tracking_db (5434) |
+| **Dashboard Service** | 8084 | BFF - data aggregation | N/A (stateless) |
 
 ### Infrastructure & Admin UIs
 
 | Service | Port | URL | Credentials |
 |---------|------|-----|-------------|
-| **PostgreSQL (Auth)** | 5431 | `localhost:5431` | User: postgres, Pass: postgres |
+| **PostgreSQL (Auth)** | 5432 | `localhost:5432` | User: postgres, Pass: postgres |
+| **PostgreSQL (AI)** | 5433 | `localhost:5433` | User: postgres, Pass: postgres |
 | **PostgreSQL (Tracking)** | 5434 | `localhost:5434` | User: postgres, Pass: postgres |
-| **PostgreSQL (AI)** | 5437 | `localhost:5437` | User: postgres, Pass: postgres |
-| **pgAdmin** | 5051 | `http://localhost:5051` | Email: admin@example.com, Pass: admin |
-| **Redis** | 6371 | `localhost:6371` | N/A |
-| **RabbitMQ** | 5671 | `localhost:5671` | User: guest, Pass: guest |
-| **RabbitMQ Management** | 15671 | `http://localhost:15671` | User: guest, Pass: guest |
+| **pgAdmin** | 5050 | `http://localhost:5050` | Email: admin@example.com, Pass: admin |
+| **Redis** | 6379 | `localhost:6379` | N/A |
+| **RabbitMQ** | 5672 | `localhost:5672` | User: guest, Pass: guest |
+| **RabbitMQ Management** | 15672 | `http://localhost:15672` | User: guest, Pass: guest |
 | **MinIO API** | 9000 | `localhost:9000` | User: minioadmin, Pass: minioadmin |
 | **MinIO Console** | 9001 | `http://localhost:9001` | User: minioadmin, Pass: minioadmin |
 
@@ -211,12 +212,12 @@ docker compose restart auth-service
 
 #### **pgAdmin (Web-based PostgreSQL Management)**
 ```
-URL: http://localhost:5051
+URL: http://localhost:5050
 Email: admin@example.com
 Password: admin
 
 Steps:
-1. Open http://localhost:5051 in browser
+1. Open http://localhost:5050 in browser
 2. Login with credentials above
 3. Register servers:
    - Right-click "Servers" → Register → Server
@@ -253,7 +254,7 @@ docker exec -it postgres-tracking psql -U postgres -d tracking_db
 
 #### **RabbitMQ Management**
 ```
-URL: http://localhost:15671
+URL: http://localhost:15672
 Username: guest
 Password: guest
 
@@ -293,7 +294,7 @@ docker logs -f dashboard-service
 
 ```
 Frontend: http://localhost:8080
-Direct Services: http://localhost:8081 (auth), 8083 (dashboard), 8084 (tracking), 8087 (ai)
+Direct Services: http://localhost:8081-8084
 ```
 
 **All examples use the gateway URL** (recommended for frontend).
@@ -321,7 +322,7 @@ GET    /api/v1/auth/grants            List granted access
 GET    /api/v1/auth/grants/received   List received access
 ```
 
-#### 🤖 AI Service (Port 8087)
+#### 🤖 AI Service (Port 8082)
 ```
 POST   /api/v1/ai/sessions            Create chat session
 GET    /api/v1/ai/sessions            List chat sessions
@@ -329,7 +330,7 @@ GET    /api/v1/ai/sessions/{id}       Get session with messages
 POST   /api/v1/ai/sessions/{id}/messages   Send message to AI
 ```
 
-#### 📊 Tracking Service (Port 8084)
+#### 📊 Tracking Service (Port 8083)
 ```
 POST   /api/v1/tracking/mood          Log mood
 GET    /api/v1/tracking/mood          List mood logs
@@ -342,7 +343,7 @@ GET    /api/v1/tracking/diary         List diary entries
 GET    /api/v1/tracking/context       Get aggregated context
 ```
 
-#### 📈 Dashboard Service (Port 8083)
+#### 📈 Dashboard Service (Port 8084)
 ```
 GET    /api/v1/dashboard/summary      Aggregated summary
 GET    /api/v1/dashboard/context/{id} Get user context
@@ -394,8 +395,7 @@ curl -X POST http://localhost:8080/api/v1/tracking/mood \
   }'
 ```
 
-**Full API Documentation:** each service exposes interactive Swagger UI at
-`/swagger-ui.html` (see HuongDanSuDung.txt section 5).
+**Full API Documentation:** See [API.md](API.md)
 
 ---
 
@@ -406,7 +406,7 @@ curl -X POST http://localhost:8080/api/v1/tracking/mood \
 **pgAdmin** is a web-based tool for managing PostgreSQL databases - the easiest way!
 
 ```
-1. Open: http://localhost:5051
+1. Open: http://localhost:5050
 2. Login:
    Email: admin@example.com
    Password: admin
@@ -633,8 +633,7 @@ async function getDashboardSummary() {
 }
 ```
 
-The snippets above are enough to wire up any frontend against the gateway at
-`http://localhost:8080`; there is no separate frontend guide in this repository.
+**Full Frontend Guide:** See [FRONTEND_GUIDE.md](FRONTEND_GUIDE.md)
 
 ---
 
@@ -674,20 +673,15 @@ docker system prune
 
 ### Build & Compile (Local Development)
 
-The project ships without the Maven wrapper (it isn't needed — the Docker build compiles
-everything). If you have a local Maven 3.9+ / JDK 17 install and want to build outside Docker:
-
 ```bash
 # Build all modules
-mvn clean package
+./mvnw clean package
 
 # Build specific module
-mvn clean package -pl auth-service
+./mvnw clean package -pl auth-service
 
-# Run locally (without Docker) — note only auth-service ships a localhost-friendly
-# application.properties; ai/tracking/dashboard only have application-docker.properties,
-# which assumes Docker container hostnames.
-mvn spring-boot:run -pl auth-service
+# Run locally (without Docker)
+./mvnw spring-boot:run -pl auth-service
 ```
 
 ### Monitor & Logs
@@ -718,15 +712,6 @@ docker-compose logs | findstr ERROR
 1. Wait 30-60 seconds (health checks take time on first start)
 2. Check logs: `docker logs auth-service`
 3. Verify database migrations: `docker logs postgres-auth | grep migration`
-
-### `network umatter-shared not found`
-
-`docker-compose.yml` depends on an external network shared with sibling stacks
-(therapist-api, social-api, notification-service — not part of this repo). Create it once:
-
-```powershell
-docker network create umatter-shared
-```
 
 ### Port Already in Use
 
@@ -788,7 +773,7 @@ docker network ls
 docker network inspect thesis-backend_mhsa-network
 
 # Test connectivity inside container
-docker exec auth-service curl http://tracking-service:8084/actuator/health
+docker exec auth-service curl http://tracking-service:8083/actuator/health
 ```
 
 ---
@@ -800,11 +785,10 @@ thesis-backend/
 ├── auth-service/              Microservice - User auth & profiles
 │   ├── src/main/java/
 │   ├── src/main/resources/
-│   │   ├── application.properties          (local/default profile)
-│   │   ├── application-docker.properties    (docker profile)
-│   │   └── db/migration/                    Database migrations (Flyway)
+│   │   ├── application.yml
+│   │   └── db/migration/      Database migrations
 │   ├── pom.xml
-│   └── Dockerfile.build
+│   └── Dockerfile
 │
 ├── ai-service/                Microservice - AI chatbot
 ├── tracking-service/          Microservice - Health tracking
@@ -814,13 +798,16 @@ thesis-backend/
 ├── shared-contracts/          Shared library - DTOs
 │
 ├── nginx/                     API Gateway configuration
-│   └── nginx.conf
+│   ├── nginx.conf
+│   └── Dockerfile
 │
 ├── docker-compose.yml         Container orchestration
 ├── pom.xml                    Maven parent POM
-├── README.md                  This file (overview)
-├── HuongDanCaiDat.txt         Installation guide (assignment deliverable)
-└── HuongDanSuDung.txt         Build & run guide (assignment deliverable)
+├── README.md                  This file (comprehensive guide)
+├── ARCHITECTURE.md            System architecture details
+├── API.md                     Full API reference
+├── DEPLOYMENT.md              Production deployment guide
+└── FRONTEND_GUIDE.md          Frontend integration
 ```
 
 ---
@@ -836,7 +823,7 @@ thesis-backend/
   - Avatar upload (MinIO)
   - Data access grants
 
-### AI Service (8087)
+### AI Service (8082)
 - **Role:** Mental health chatbot using Google Gemini API
 - **Database:** PostgreSQL (ai_db)
 - **Key Features:**
@@ -845,7 +832,7 @@ thesis-backend/
   - Message history
   - Event publishing
 
-### Tracking Service (8084)
+### Tracking Service (8083)
 - **Role:** Health data tracking
 - **Database:** PostgreSQL (tracking_db)
 - **Cache:** Redis
@@ -855,7 +842,7 @@ thesis-backend/
   - Context aggregation
   - Data access control
 
-### Dashboard Service (8083)
+### Dashboard Service (8084)
 - **Role:** Backend For Frontend (BFF)
 - **Database:** None (stateless)
 - **Key Features:**

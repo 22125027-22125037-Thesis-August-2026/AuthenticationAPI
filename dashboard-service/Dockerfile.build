@@ -1,13 +1,14 @@
-FROM maven:3.9-eclipse-temurin-17 AS builder
+FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /build
 COPY . .
-RUN mvn clean package -DskipTests -q
+RUN apk add --no-cache maven && \
+    mvn clean package -DskipTests -q
 
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 COPY --from=builder /build/dashboard-service/target/dashboard-service.jar .
 COPY --from=builder /build/dashboard-service/entrypoint.sh .
 RUN sed -i 's/\r$//' entrypoint.sh \
     && chmod +x entrypoint.sh
-EXPOSE 8083
+EXPOSE 8084
 ENTRYPOINT ["./entrypoint.sh"]
