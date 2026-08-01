@@ -24,9 +24,14 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 import lombok.RequiredArgsConstructor;
 
 /**
- * Stores treasure media (image/audio/video) in object storage (MinIO in dev, S3 in prod),
- * mirroring auth-service's S3StorageService. Persists only the object key; callers generate
- * a short-lived presigned GET URL for responses.
+ * Stores tracking-service media (treasure, diary attachments, ...) in object storage (MinIO in
+ * dev, S3 in prod), mirroring auth-service's S3StorageService. Persists only the object key;
+ * callers generate a short-lived presigned GET URL for responses.
+ *
+ * <p>Despite the name (kept to avoid churn from its original treasure-only scope), this is the
+ * shared upload/presign/delete service for every media kind in tracking-service — see
+ * {@link #uploadObject} which {@link #uploadTreasureMedia} and the diary attachment flow both
+ * delegate to.
  *
  * <p>Unlike auth-service, the presigner here is configured with the same endpoint/path-style
  * as the S3 client, so presigned URLs point at MinIO in dev instead of the public AWS host.
@@ -60,8 +65,16 @@ public class TreasureStorageService {
      * Uploads a single treasure media item and returns its object key.
      */
     public String uploadTreasureMedia(String profileId, InputStream fileContent, String filename, String contentType) {
-        String objectKey = String.format("treasures/%s/%s.%s",
-                profileId,
+        return uploadObject(String.format("treasures/%s", profileId), fileContent, filename, contentType);
+    }
+
+    /**
+     * Uploads an object under the given key prefix (e.g. "diary/{profileId}") and returns the
+     * generated object key. Shared by every media kind in tracking-service.
+     */
+    public String uploadObject(String keyPrefix, InputStream fileContent, String filename, String contentType) {
+        String objectKey = String.format("%s/%s.%s",
+                keyPrefix,
                 UUID.randomUUID(),
                 getFileExtension(filename));
 
@@ -73,11 +86,11 @@ public class TreasureStorageService {
                     .build();
 
             s3Client.putObject(putRequest, RequestBody.fromInputStream(fileContent, getContentLength(fileContent)));
-            log.info("Uploaded treasure media: s3://{}/{}", bucket, objectKey);
+            log.info("Uploaded object: s3://{}/{}", bucket, objectKey);
             return objectKey;
         } catch (Exception e) {
-            log.error("Failed to upload treasure media to S3: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to upload treasure media", e);
+            log.error("Failed to upload object to S3: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to upload object", e);
         }
     }
 

@@ -17,15 +17,21 @@ import com.mhsa.backend.tracking.repository.DiaryEntryRepository;
 import com.mhsa.backend.tracking.repository.MediaAttachmentRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class MediaAttachmentServiceImpl implements MediaAttachmentService {
 
     private final MediaAttachmentRepository mediaAttachmentRepository;
     private final DiaryEntryRepository diaryEntryRepository;
     private final MediaAttachmentMapper mediaAttachmentMapper;
+    // Shared object-storage service (see its class comment) — cleans up the backing S3/MinIO
+    // object when a diary attachment is deleted directly through this API (the mobile app's
+    // "remove photo" action while editing an entry).
+    private final TreasureStorageService mediaStorageService;
 
     @Override
     @Transactional
@@ -91,6 +97,20 @@ public class MediaAttachmentServiceImpl implements MediaAttachmentService {
         }
 
         MediaAttachment existing = findOwnedMediaAttachment(profileId, id);
+
+        // Best-effort media cleanup: never let a failed object delete block the row delete.
+        // Legacy/generic rows may hold an arbitrary client-supplied fileUrl rather than an
+        // object key from our bucket; deleteObject() is tolerant of that (S3 delete of a
+        // nonexistent key is a no-op) and any real failure is only logged.
+        String objectKey = existing.getFileUrl();
+        if (objectKey != null && !objectKey.isBlank() && !objectKey.startsWith("/files/")) {
+            try {
+                mediaStorageService.deleteObject(objectKey);
+            } catch (Exception e) {
+                log.warn("Failed to delete media object {} for attachmentId={}; deleting row anyway", objectKey, id, e);
+            }
+        }
+
         mediaAttachmentRepository.delete(existing);
     }
 

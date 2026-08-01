@@ -1,5 +1,6 @@
 package com.mhsa.backend.tracking.service;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Base64;
@@ -36,6 +37,9 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
     private final DiaryEntryMapper diaryEntryMapper;
     private final StreakService streakService;
     private final TrackingEventPublisher trackingEventPublisher;
+    // Shared object-storage service (see its class comment) — uploads diary attachments to
+    // the same MinIO/S3 bucket treasure media already uses.
+    private final TreasureStorageService mediaStorageService;
 
     @Override
     @Transactional
@@ -61,25 +65,7 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
         if (files != null && !files.isEmpty()) {
             List<MediaAttachment> attachmentsToSave = files.stream()
                     .filter(file -> file != null && !file.isEmpty())
-                    .map(file -> {
-                        String fileName = file.getOriginalFilename();
-                        String fileType = file.getContentType();
-                        log.debug("Preparing attachment metadata: profileId={}, fileName={}, mimeType={}", profileId,
-                                fileName, fileType);
-
-                        // TODO: Implement actual file storage (e.g., local disk or S3) and generate fileUrl.
-                        String generatedFileUrl = String.format("/files/diary/%s/%s", savedEntity.getId(), fileName);
-
-                        return MediaAttachment.builder()
-                                .profileId(profileId)
-                                .diaryEntry(savedEntity)
-                                .fileName(fileName)
-                                .mimeType(fileType)
-                                .fileUrl(generatedFileUrl)
-                                .fileSizeBytes(file.getSize())
-                                .mediaType(resolveMediaType(fileType))
-                                .build();
-                    })
+                    .map(file -> buildAttachment(profileId, savedEntity, file))
                     .toList();
 
             List<MediaAttachment> savedAttachments = mediaAttachmentRepository.saveAll(attachmentsToSave);
@@ -157,25 +143,12 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
         }
 
         if (files != null) {
-            existing.getMediaAttachments().clear();
-
+            // Additive: new attachments are appended, existing ones are left untouched. Removing
+            // a specific attachment is a separate call — DELETE /api/v1/tracking/media/{id} —
+            // made by the client before/alongside this update, not implied by omission here.
             List<MediaAttachment> attachmentsToSave = files.stream()
                     .filter(file -> file != null && !file.isEmpty())
-                    .map(file -> {
-                        String fileName = file.getOriginalFilename();
-                        String fileType = file.getContentType();
-                        String generatedFileUrl = String.format("/files/diary/%s/%s", existing.getId(), fileName);
-
-                        return MediaAttachment.builder()
-                                .profileId(profileId)
-                                .diaryEntry(existing)
-                                .fileName(fileName)
-                                .mimeType(fileType)
-                                .fileUrl(generatedFileUrl)
-                                .fileSizeBytes(file.getSize())
-                                .mediaType(resolveMediaType(fileType))
-                                .build();
-                    })
+                    .map(file -> buildAttachment(profileId, existing, file))
                     .toList();
 
             if (!attachmentsToSave.isEmpty()) {
@@ -198,12 +171,63 @@ public class DiaryEntryServiceImpl implements DiaryEntryService {
         }
 
         DiaryEntry existing = findOwnedDiaryEntry(profileId, id);
+
+        // Best-effort media cleanup: never let a failed object delete block the row delete.
+        for (MediaAttachment attachment : existing.getMediaAttachments()) {
+            deleteAttachmentObject(attachment);
+        }
+
         diaryEntryRepository.delete(existing);
     }
 
     private DiaryEntry findOwnedDiaryEntry(UUID profileId, UUID id) {
         return diaryEntryRepository.findByIdAndProfileId(id, profileId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary entry not found"));
+    }
+
+    /**
+     * Uploads one multipart file to object storage under this diary entry's owner and builds
+     * the (unsaved) MediaAttachment row pointing at it.
+     */
+    private MediaAttachment buildAttachment(UUID profileId, DiaryEntry diaryEntry, MultipartFile file) {
+        String fileName = file.getOriginalFilename();
+        String fileType = file.getContentType();
+        log.debug("Uploading diary attachment: profileId={}, fileName={}, mimeType={}", profileId, fileName, fileType);
+
+        String objectKey;
+        try {
+            objectKey = mediaStorageService.uploadObject(
+                    "diary/" + profileId,
+                    file.getInputStream(),
+                    fileName,
+                    fileType);
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Failed to read uploaded attachment", e);
+        }
+
+        return MediaAttachment.builder()
+                .profileId(profileId)
+                .diaryEntry(diaryEntry)
+                .fileName(fileName)
+                .mimeType(fileType)
+                .fileUrl(objectKey)
+                .fileSizeBytes(file.getSize())
+                .mediaType(resolveMediaType(fileType))
+                .build();
+    }
+
+    /** Deletes an attachment's backing object, tolerating legacy rows that never had one. */
+    private void deleteAttachmentObject(MediaAttachment attachment) {
+        String objectKey = attachment.getFileUrl();
+        if (objectKey == null || objectKey.isBlank() || objectKey.startsWith("/files/")) {
+            return;
+        }
+        try {
+            mediaStorageService.deleteObject(objectKey);
+        } catch (Exception e) {
+            log.warn("Failed to delete diary attachment object {} for attachmentId={}; deleting row anyway",
+                    objectKey, attachment.getId(), e);
+        }
     }
 
     private LocalDate resolveEntryDate(DiaryEntryRequest request) {
